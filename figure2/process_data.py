@@ -327,11 +327,11 @@ if __name__ == "__main__":
     fit_sp_mono, fit_met_df = run_monoculture()
     
     #save only 0.1 intervals for metabolite df, very large
-    def is_multiple_of_point1(x, tol=1e-6):
-        return abs((x / 0.1) - round(x / 0.1)) < tol
+    def is_multiple_of_point5(x, tol=1e-6):
+        return abs((x / 0.5) - round(x / 0.5)) < tol
 
-    init_met_df = init_met_df[init_met_df['time'].apply(is_multiple_of_point1)]
-    fit_met_df  = fit_met_df[fit_met_df['time'].apply(is_multiple_of_point1)]
+    init_met_df = init_met_df[init_met_df['time'].apply(is_multiple_of_point5)]
+    fit_met_df  = fit_met_df[fit_met_df['time'].apply(is_multiple_of_point5)]
     init_met_df['time'] = init_met_df['time'].round(1)
     fit_met_df['time'] = fit_met_df['time'].round(1)
 
