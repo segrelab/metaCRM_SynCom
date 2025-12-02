@@ -1,0 +1,65 @@
+metabolite,metabolite_class
+sucrose,Sugar
+trehalose,Sugar
+myo-inositol,Sugar
+xylose,Sugar
+mannitol,Sugar
+N-acetyl-glucosamine,Sugar
+Glucose,Sugar
+lactic acid,Organic_Acid
+malic acid,Organic_Acid
+citric acid,Organic_Acid
+pyruvic acid,Organic_Acid
+alpha-ketoglutaric acid,Organic_Acid
+citrulline,Organic_Acid
+succinic acid,Organic_Acid
+alanine,Amino_Acid
+arginine,Amino_Acid
+asparagine,Amino_Acid
+aspartic acid,Amino_Acid
+glutamic acid,Amino_Acid
+glutamine,Amino_Acid
+glycine,Amino_Acid
+histidine,Amino_Acid
+isoleucine,Amino_Acid
+leucine,Amino_Acid
+lysine,Amino_Acid
+methionine,Amino_Acid
+phenylalanine,Amino_Acid
+proline,Amino_Acid
+serine,Amino_Acid
+threonine,Amino_Acid
+tryptophan,Amino_Acid
+tyrosine,Amino_Acid
+valine,Amino_Acid
+cysteine,Amino_Acid
+cystine,Amino_Acid
+adenine,Nucleobase
+adenosine,Nucleobase
+cytidine,Nucleobase
+cytosine,Nucleobase
+guanine,Nucleobase
+guanosine,Nucleobase
+hypoxanthine,Nucleobase
+inosine,Nucleobase
+thymine,Nucleobase
+uracil,Nucleobase
+uridine,Nucleobase
+xanthine,Nucleobase
+xanthosine,Nucleobase
+5-methyluridine,Nucleobase
+gamma-Aminobutyric acid,Others
+ectoine,Others
+N-acetyl-glutamic acid,Others
+ornithine,Others
+shikimic acid,Others
+taurine,Others
+N-acetylglutamine,Others
+n-acetyllysine,Others
+n-acetylmuramic acid,Others
+betaine,Others
+nicotinamide,Others
+trigonelline,Others
+carnitine,Others
+choline,Others
+sn-glycero-3-phosphocholine,Others
