@@ -1,22 +1,22 @@
+"""
+Figure 4: Whole Community and Leave-one-out plots
+"""
 import sys
 import os
 import pandas as pd
 import numpy as np
-import argparse
-sys.path.append("..")
+sys.path.append(".")
 import utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats
 import math
+from argparse import ArgumentParser
+from pathlib import Path
 
 def plot_Mfig_4a(df_long, outfile=None):
     """
-    df_long: long-form DataFrame with columns:
-        - passage
-        - species
-        - value
-        - replicate (new)
+    Plot Passages and replicates as stacked bars for whole community experiment
     """
     
     # Map species code to readable names
@@ -26,20 +26,20 @@ def plot_Mfig_4a(df_long, outfile=None):
     # Sort by passage and replicate
     df_long["rep_index"] = df_long["replicate"].astype(str).str.extract("(\d+)").astype(int)
     df_long = df_long.sort_values(["Passage", "rep_index"])
-
     species_order = sorted(df_long["species_name"].unique())
     palette = utils.get_species_colormap()
-
     passages = sorted(df_long["Passage"].unique())
     reps_per_passage = df_long["rep_index"].nunique()
+    
     bar_width = 0.8 / reps_per_passage
-
     fig, ax = plt.subplots(figsize=(8, 6))
 
+    #loop through passages and plot bars
     for i, passage in enumerate(passages):
         passage_data = df_long[df_long["Passage"] == passage]
         for j, rep in enumerate(sorted(passage_data["rep_index"].unique())):
             rep_data = passage_data[passage_data["rep_index"] == rep]
+            #keep species order consistent across all bars
             rep_data = rep_data.groupby("species_name")["value"].sum().reindex(species_order, fill_value=0)
             bottom = 0
             xpos = i + j * bar_width
@@ -58,27 +58,31 @@ def plot_Mfig_4a(df_long, outfile=None):
     ax.set_xticks([i + (reps_per_passage - 1) * bar_width / 2 for i in range(len(passages))])
     ax.set_xticklabels(passages, rotation=0)
 
-    # Final formatting
+    #final formatting
     ax.set_xlabel("Passage", fontsize=12)
     ax.set_ylabel("Relative Abundance (16S)", fontsize=12)
     ax.set_title("Experiment A Abundances")
-
     handles = [plt.Rectangle((0, 0), 1, 1, color=palette[sp]) for sp in species_order]
     ax.legend(handles, species_order, bbox_to_anchor=(1, 1), loc="upper left", title="Species")
-
     ax.set_ylim(0, 1)
     plt.tight_layout()
+    
     if outfile:
         plt.savefig(outfile, dpi=600)
     plt.show()
-    
+
+    #return species_order to be used for the other bar plots of similar style
     return species_order
 
 def plot_whole_community_exp2(exp2_df_passages, sp_order, outfile=None):
+    """
+    Plot Passages and replicates as stacked bars for whole community experiment (2).
+    """
 
     df = exp2_df_passages.copy()
     df["Passage"] = df["Passage"].astype(str)
 
+    # Map species code to readable names
     species_name_map = {code: utils.get_species_name(code) for code in exp2_df_passages.columns if code not in ["Passage", "rep"]}
     long_df = df.melt(id_vars=["Passage", "rep"], var_name="species", value_name="value")
     long_df["species_name"] = long_df["species"].map(species_name_map)
@@ -86,18 +90,20 @@ def plot_whole_community_exp2(exp2_df_passages, sp_order, outfile=None):
     long_df["rep_index"] = long_df["rep"].str.extract("(\d+)").astype(int)
     long_df = long_df.sort_values(["Passage", "rep_index"])
 
+    #sort by passage and replicate
     passages = sorted(long_df["Passage"].unique())[1:6]
     reps_per_passage = long_df["rep_index"].nunique()
     bar_width = 0.8 / reps_per_passage
 
     palette = utils.get_species_colormap()
-
     fig, ax = plt.subplots(figsize=(8, 6))
 
+    #loop through passages and replicates and plot stacked bars
     for i, passage in enumerate(passages):
         passage_data = long_df[long_df["Passage"] == passage]
         for j, rep in enumerate(sorted(passage_data["rep_index"].unique())):
             rep_data = passage_data[passage_data["rep_index"] == rep]
+            #keep species order consistent across bars
             rep_data = rep_data.groupby("species_name")["value"].sum().reindex(sp_order, fill_value=0)
             bottom = 0
             xpos = i + j * bar_width
@@ -113,13 +119,12 @@ def plot_whole_community_exp2(exp2_df_passages, sp_order, outfile=None):
                 )
                 bottom += height
 
+    #other plot formatting options
     ax.set_xticks([i + (reps_per_passage - 1) * bar_width / 2 for i in range(len(passages))])
     ax.set_xticklabels(passages, rotation=0)
-
     ax.set_xlabel("Passage", fontsize=12)
     ax.set_ylabel("Relative Abundance (16S)", fontsize=12)
     ax.set_title("Experiment B Abundances")
-
     handles = [plt.Rectangle((0, 0), 1, 1, color=palette[sp]) for sp in sp_order]
     ax.legend(handles, sp_order, bbox_to_anchor=(1, 1), loc="upper left", title="Species")
 
@@ -132,19 +137,11 @@ def plot_whole_community_exp2(exp2_df_passages, sp_order, outfile=None):
 
 def plot_whole_community_simulation(df_pivot, species_order_names, outfile=None):
     """
-    df_pivot: DataFrame with
-        index = passage
-        columns = species codes
-        values = normalized abundances (sum to 1 per passage)
-    species_order_names: list of species names in the desired order for plotting
+    Plot Passages and replicates as stacked bars for simulated whole community.
     """
-    # Map species codes to names
+    #map species codes to names and codes to names
     species_map = {sp: utils.get_species_name(sp) for sp in df_pivot.columns}
-
-    # Filter species_order_names to only include species present in df_pivot
     species_order_names = [sp for sp in species_order_names if sp in species_map.values()]
-
-    # Reverse map to get codes in the order of species names
     code_order = []
     for name in species_order_names:
         for code, cname in species_map.items():
@@ -153,13 +150,14 @@ def plot_whole_community_simulation(df_pivot, species_order_names, outfile=None)
                 break
 
     palette = utils.get_species_colormap()
-
     fig, ax = plt.subplots(figsize=(5, 6))
     passages = df_pivot.index
     bar_width = 0.6
 
+    #loop through passages and plot stacked bars
     for i, passage in enumerate(passages):
         bottom = 0
+        #keep order of species consistent across passages and other plots
         for sp_code in code_order:
             species_name = species_map[sp_code]
             height = df_pivot.loc[passage, sp_code]
@@ -169,12 +167,12 @@ def plot_whole_community_simulation(df_pivot, species_order_names, outfile=None)
             )
             bottom += height
 
+    #other plotting parameters/options
     ax.set_xticks(range(len(passages)))
     ax.set_xticklabels(passages, rotation=0)
     ax.set_xlabel("Passage", fontsize=12)
     ax.set_ylabel("Relative Abundance", fontsize=12)
     ax.set_title("Simulated Abundances")
-
     handles = [plt.Rectangle((0, 0), 1, 1, color=palette[sp]) for sp in species_order_names]
     ax.legend(handles, species_order_names, bbox_to_anchor=(1, 1), loc="upper left", title="Species")
     ax.set_ylim(0, 1)
@@ -184,6 +182,7 @@ def plot_whole_community_simulation(df_pivot, species_order_names, outfile=None)
     plt.show()
 
 def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, outfile=None):
+    
     # Assume all dataframes have same shape: passages x species
     passages = df_exp2.index
 
@@ -193,12 +192,12 @@ def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, out
         "Simulation Mode": [],
         "Exp Dataset": []
     }
-
     df_exp1.index = df_exp1.index.astype(int)
     df_exp2.index = df_exp2.index.astype(int)
     df_sim.index = df_sim.index.astype(int)
     df_sim_no_cf.index = df_sim_no_cf.index.astype(int)
 
+    #calculate correlations between experiments and simulations for each passage
     for exp_label, df_exp in zip(["ExpA", "ExpB"], [df_exp1, df_exp2]):
         for p in passages:
             r1, _ = scipy.stats.spearmanr(df_exp.loc[p], df_sim.loc[p])
@@ -214,10 +213,10 @@ def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, out
             corrs["Simulation Mode"].append("No Cross-feeding")
             corrs["Exp Dataset"].append(exp_label)
 
-    # Convert to DataFrame
+    #save together as DataFrame
     corr_df = pd.DataFrame(corrs)
 
-    # Plot
+    #plot
     plt.figure(figsize=(7, 5))
     sns.lineplot(
         data=corr_df,
@@ -238,7 +237,7 @@ def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, out
         plt.savefig(outfile, dpi=600)
     plt.show()
     
-    return #corr_df
+    return 
 
 def distribution_overlap(a, b, bins=10):
     """Return overlap coefficient between two 1D distributions."""
@@ -338,75 +337,60 @@ def plot_all_loo_effects(loo_sim_vals, loo_exp_vals, outfile=None):
 
 def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
     """
-    df_sim, df_exp:
-        Rows = leave-one-out experiments (index='sp_left_out')
-        Columns = species codes (e.g., '1202', '1409', etc.)
-    
-    utils:
-        Must have utils.get_species_name(code)
+    Plot leave-one-out resulting abundances by species in a boxplot, show whole community abundance for reference as well.
     """
 
-
-    # ---- 1. Drop species with no growth ----
+    #drop species with low/no growth in whole community
     no_growth = {"1330", "1336", "1338"}  # keep as strings
     df_sim = df_sim.drop(columns=[c for c in df_sim.columns if str(c) in no_growth], errors="ignore")
     df_exp = df_exp.drop(columns=[c for c in df_exp.columns if str(c) in no_growth], errors="ignore")
 
-    # ---- 2. Copy and split into LOO vs whole-community ----
+    #remove whole-community row ('5') from boxplots, to be plotted differently
     df_sim = df_sim.copy()
     df_exp = df_exp.copy()
-
-    # Remove whole-community row ('5') from boxplots
     df_sim_loo = df_sim[df_sim.index.astype(str) != "5"]
     df_exp_loo = df_exp[df_exp.index.astype(str) != "5"]
 
-    # Extract whole-community abundance for markers
+    #extract whole-community abundance for markers
     whole_sim = df_sim.loc["5"]
     whole_exp = df_exp.loc["5"]
 
-    # ---- 3. Melt into long format ----
+    #melt into long format
     df_sim_loo = df_sim_loo.reset_index().rename(columns={df_sim_loo.index.name or "index": "sp_left_out"})
     df_exp_loo = df_exp_loo.reset_index().rename(columns={df_exp_loo.index.name or "index": "sp_left_out"})
-
     sim_long = df_sim_loo.melt(id_vars="sp_left_out", var_name="species_code", value_name="abundance")
     exp_long = df_exp_loo.melt(id_vars="sp_left_out", var_name="species_code", value_name="abundance")
 
-    # ---- 4. Label source ----
+    #differentiate experiment vs. simulated
     sim_long["source"] = "Simulation"
     exp_long["source"] = "Experiment"
-
     combined = pd.concat([sim_long, exp_long], ignore_index=True)
-
-    # ---- 5. Ensure strings ----
     combined["species_code"] = combined["species_code"].astype(str)
     combined["sp_left_out"] = combined["sp_left_out"].astype(str)
 
-    # ---- 6. Convert species codes to names ----
+    #convert species codes to names
     combined["species"] = combined["species_code"].apply(utils.get_species_name).astype(str)
     combined["left_out_species"] = combined["sp_left_out"].apply(utils.get_species_name).astype(str)
 
-    # ---- 7. Remove diagonal entries ----
+    #remove diagonals (effect of species i when i is left out)
     combined = combined[combined["species"] != combined["left_out_species"]]
 
-    # ---- 8. Remove zero abundances ----
+    #remove zero abundances to log transform
     combined = combined[combined["abundance"] > 0]
-
-    # ---- 9. Log transform ----
     combined["log_abun"] = np.log10(combined["abundance"])
     combined = combined[np.isfinite(combined["log_abun"])]
 
-    # ---- 10. Begin plot ----
+    #plot
     plt.figure(figsize=(12, 7))
     ax = plt.gca()
-
     species_order = combined["species"].unique()
     ax.set_xlim(-0.5, len(species_order) - 0.5)
 
-    # Alternating background
+    #alternating background
     for i in range(0, len(species_order), 2):
         ax.axvspan(i - 0.5, i + 0.5, color="lightgrey", alpha=0.2)
 
-    # Stripplot
+    #stripplot
     sns.stripplot(
         data=combined,
         x="species",
@@ -419,7 +403,7 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
         palette={"Simulation": "green", "Experiment": "orange"},
     )
 
-    # Boxplot
+    #boxplot
     sns.boxplot(
         data=combined,
         x="species",
@@ -435,17 +419,13 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
         palette={"Simulation": "green", "Experiment": "orange"},
     )
 
-    # ---- 11. Plot whole-community markers ----
-    plt.draw()  # compute axis limits before querying
+    #plot whole-community abundances as stars
+    plt.draw()  
     ymin, ymax = ax.get_ylim()
 
     for i, sp in enumerate(species_order): 
-        # Retrieve the original species code
         code = combined[combined["species"] == sp]["species_code"].iloc[0]
-
-        # --- Simulation whole-community value ---
         sim_val = whole_sim.get(code, np.nan)
-
         if pd.notna(sim_val):
             if sim_val > 0:
                 y = np.log10(sim_val)
@@ -456,8 +436,6 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
                 color="green", s=80, marker="*",
                 edgecolor="black", zorder=6, alpha=0.9
             )
-
-        # --- Experiment whole-community value ---
         exp_val = whole_exp.get(code, np.nan)
 
         if pd.notna(exp_val):
@@ -475,13 +453,13 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
         sim_vals = combined[(combined["species"] == sp) & (combined["source"] == "Simulation")]["abundance"]
         exp_vals = combined[(combined["species"] == sp) & (combined["source"] == "Experiment")]["abundance"]
 
-        # Mann–Whitney U test (two-sided)
+        #perform Mann–Whitney U test (two-sided) between expeirmental and simulated distributions
         if len(sim_vals) > 0 and len(exp_vals) > 0:
             stat, p_value = scipy.stats.mannwhitneyu(sim_vals, exp_vals, alternative='two-sided')
         else:
             p_value = np.nan
 
-        # Determine significance stars
+        #determine significance stars
         if np.isnan(p_value):
             stars = ""
         elif p_value < 0.001:
@@ -493,7 +471,7 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
         else:
             stars = ""
 
-    # ---- 13. Legend cleanup ----
+    #legend cleanup
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), loc="lower left", fontsize=12)
@@ -522,6 +500,7 @@ def plot_whole_community_correlation_arth(df_exp1, df_exp2, df_sim, df_sim_no_cf
         "Exp Dataset": []
     }
 
+    #For each whole community experiment, perform correlations with different simulation modes, asave in dataframe
     for exp_label, df_exp in zip(["Exp1", "Exp2"], [df_exp1, df_exp2]):
         for p in passages:
             r1, _ = scipy.stats.spearmanr(df_exp.loc[p], df_sim.loc[p])
@@ -543,11 +522,10 @@ def plot_whole_community_correlation_arth(df_exp1, df_exp2, df_sim, df_sim_no_cf
             corrs["Simulation Mode"].append("No Arthrobacter")
             corrs["Exp Dataset"].append(exp_label)
 
-    # Convert to DataFrame
     corr_df = pd.DataFrame(corrs)
-    
-    fig, axes = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
 
+    #plot correlations across passages
+    fig, axes = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
     for ax, exp_label in zip(axes, ["Exp1", "Exp2"]):
         sns.lineplot(
             data=corr_df[corr_df["Exp Dataset"] == exp_label],
@@ -568,7 +546,7 @@ def plot_whole_community_correlation_arth(df_exp1, df_exp2, df_sim, df_sim_no_cf
         ax.set_ylabel("Spearman Correlation", fontsize=12)
         ax.set_xlabel("Passage", fontsize=12)
 
-        # Place legend only on the first subplot to avoid duplicates
+        #place legend only on the first subplot to avoid duplicates
         if exp_label == "Exp1":
             ax.legend(
                 fontsize=10,
@@ -628,6 +606,9 @@ def plot_loo_onesp(df_exp, df_sim, sp, outfile=None):
     return fig, ax
 
 def load_exp_loo_effects(path_to_epistasis_vals):
+    #Load epistasis values df and subset to LOO W_i values
+    #Some are under W_j and some are under W_i, need a complete set
+    
     full_epistasis_vals = pd.read_csv(path_to_epistasis_vals)
     full_epistasis_vals.columns
     extra_vals = full_epistasis_vals[['j', 'k', '$W_j$']].drop_duplicates()
@@ -640,28 +621,31 @@ def load_exp_loo_effects(path_to_epistasis_vals):
     return loo_exp_vals
 
 
+if __name__ == "__main__":
+    parser = ArgumentParser(description="Generate all figures from CSV data.")
+    parser.add_argument("--data_dir", required=True, help="Directory with input CSV files.")
+    #parser.add_argument("--epistasis_data", required=True, help="Directory with experimental LOO effects data.")
+    parser.add_argument("--out", required=True, help="Directory to save output figures.")
+    args = parser.parse_args()
+    os.makedirs(args.out, exist_ok=True)
 
+    #LOAD PROCESSED DATA
+    exp_a_reps = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_a_reps.csv"))
+    exp_a_clean = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_a.csv"), index_col=0)
+    exp_b_reps = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_b_reps.csv"))
+    exp_b_clean = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_b.csv"), index_col=0)
 
-def main(data_dir, fig_dir):
-    os.makedirs(fig_dir, exist_ok=True)
-
-    # --- Load CSVs / Data ---
-    exp_a_reps = pd.read_csv(os.path.join(data_dir, "df_a_reps.csv"))
-    exp_a_clean = pd.read_csv(os.path.join(data_dir, "df_a.csv"), index_col=0)
-    exp_b_reps = pd.read_csv(os.path.join(data_dir, "df_b_reps.csv"))
-    exp_b_clean = pd.read_csv(os.path.join(data_dir, "df_b.csv"), index_col=0)
-
-    wc_sp_sim = pd.read_csv(os.path.join(data_dir, "wc_sp_sim.csv"), index_col=0)
-    wc_sp_nc = pd.read_csv(os.path.join(data_dir, "wc_sp_sim_nc.csv"), index_col=0)   
-    wc_sp_noarth = pd.read_csv(os.path.join(data_dir, "df_sp_noarth.csv"), index_col=0)
+    wc_sp_sim = pd.read_csv(os.path.join(args.data_dir, "sim_whole_comm/wc_sp_sim.csv"), index_col=0)
+    wc_sp_nc = pd.read_csv(os.path.join(args.data_dir, "sim_whole_comm/wc_sp_sim_nc.csv"), index_col=0)   
+    wc_sp_noarth = pd.read_csv(os.path.join(args.data_dir, "sim_whole_comm/df_sp_noarth.csv"), index_col=0)
     
-    exp_loo_df = pd.read_csv(os.path.join(data_dir, "exp_loo_df.csv"), index_col=0)
-    sim_loo_effects = pd.read_csv(os.path.join(data_dir, "sim_loo_effects.csv"))
-    sim_loo_nc = pd.read_csv(os.path.join(data_dir, "sp_loo_nc.csv"))
-    sim_loo = pd.read_csv(os.path.join(data_dir, "sp_loo.csv"), index_col=0)
+    exp_loo_df = pd.read_csv(os.path.join(args.data_dir, "exp_loo_df.csv"), index_col=0)
+    sim_loo_effects = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sim_loo_effects.csv"))
+    sim_loo_nc = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sp_loo_nc.csv"))
+    sim_loo = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sp_loo.csv"), index_col=0)
 
-    # slight modulations to data
-    exp_loo_effects = load_exp_loo_effects('/projectnb/cometsfba/dcscott/CRM_syncom/data/epistasis_vals.csv')
+    #load experimental epistasis values
+    exp_loo_effects = load_exp_loo_effects(os.path.join(args.data_dir, "epistasis_vals.csv"))
 
     #add whole community row to LOO df
     whole_sp_sim = wc_sp_sim.copy()
@@ -670,22 +654,15 @@ def main(data_dir, fig_dir):
     row_to_append = exp_a_clean.loc[5, exp_loo_df.columns]
     exp_loo_plot = pd.concat([exp_loo_df, pd.DataFrame([row_to_append], index=['5'])])
     
-    # --- Plotting ---
-    col_order = plot_Mfig_4a(exp_a_reps, outfile=os.path.join(fig_dir, "Mfig_4a_a.png"))
-    plot_whole_community_exp2(exp_b_reps, col_order, outfile=os.path.join(fig_dir, "Mfig_4a_b.png"))
-    plot_whole_community_simulation(wc_sp_sim, col_order, outfile=os.path.join(fig_dir, "Mfig_4b.png"))
-    plot_whole_community_simulation(wc_sp_nc, col_order, outfile=os.path.join(fig_dir, "Mfig_4c.png"))
-    plot_whole_community_correlation(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, outfile=os.path.join(fig_dir, "Mfig_4d.png"))
-    plot_whole_community_correlation_arth(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, wc_sp_noarth, outfile=os.path.join(fig_dir, "Sfig_8.png"))
-    plot_all_loo_effects(sim_loo_effects, exp_loo_effects, outfile=os.path.join(fig_dir, "loo_effects_bar.png"))
-    plot_loo_abundance_comparison(sim_loo_plot, exp_loo_plot, outfile=os.path.join(fig_dir, "Mfig_4e.png"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(fig_dir, "Sfig_7b.png"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(fig_dir, "Sfig_7a.png"))
+    #PLOT ALL FIGURES
+    col_order = plot_Mfig_4a(exp_a_reps, outfile=os.path.join(args.out, "Mfig_4a_a.png"))
+    plot_whole_community_exp2(exp_b_reps, col_order, outfile=os.path.join(args.out, "Mfig_4a_b.png"))
+    plot_whole_community_simulation(wc_sp_sim, col_order, outfile=os.path.join(args.out, "Mfig_4b.png"))
+    plot_whole_community_simulation(wc_sp_nc, col_order, outfile=os.path.join(args.out, "Mfig_4c.png"))
+    plot_whole_community_correlation(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, outfile=os.path.join(args.out, "Mfig_4d.png"))
+    plot_whole_community_correlation_arth(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, wc_sp_noarth, outfile=os.path.join(args.out, "Sfig_8.png"))
+    plot_all_loo_effects(sim_loo_effects, exp_loo_effects, outfile=os.path.join(args.out, "loo_effects_bar.png"))
+    plot_loo_abundance_comparison(sim_loo_plot, exp_loo_plot, outfile=os.path.join(args.out, "Mfig_4e.png"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(args.out, "Sfig_7b.png"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "Sfig_7a.png"))
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate all figures from CSV data.")
-    parser.add_argument("--data_dir", required=True, help="Directory with input CSV files.")
-    parser.add_argument("--epistasis_data", required=True, help="Directory with experimental LOO effects data.")
-    parser.add_argument("--fig_dir", required=True, help="Directory to save output figures.")
-    args = parser.parse_args()
-    main(args.data_dir, args.fig_dir)

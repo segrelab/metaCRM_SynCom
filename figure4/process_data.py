@@ -3,12 +3,13 @@ Figure 4: Process CRM 16S and simulation data for leave-one-out and whole-commun
 """
 import sys
 import os
+from argparse import ArgumentParser
 from pathlib import Path
 import pandas as pd
 import numpy as np
-sys.path.append(os.path.abspath(".."))
+sys.path.append(".")
 import utils
-from argparse import ArgumentParser
+
 
 def load_OTU_table(inputfile):
     """ load processed OTU table """
@@ -117,15 +118,13 @@ def load_experiment_2_df(path):
     df[numeric_cols] = df[numeric_cols].div(df[numeric_cols].sum(axis=1),axis=0)
     df.Passage = df.Passage.str.replace("P",'').astype(int)
 
-    #only passages 1-5
+    #only passages 1-5 to match experiment A
     df_filtered = df[df["Passage"].isin(range(1, 6))]
     numeric_cols = df_filtered.columns.difference(['Passage', 'rep'])
     df_avg = df_filtered.drop(columns="rep").groupby("Passage").mean()
-    #renorm
+    #renorm to sum to 1
     df_avg = df_avg.div(df_avg.sum(axis=1), axis=0)
     df_final = df_avg
-    # Get first 5 passages and convert "P1" → 1, etc.
-    #df_final.index = df_final.index.str.replace("P", "").astype(int)
 
     return df_final, df
 
@@ -196,6 +195,9 @@ def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t
 
 
 def simulate_leave_one_out_exp(tfs=4, time=48, crossfeeding=True, old=False):
+    '''
+    Perform Leave-one-out simulations with all 15 strains. Save in final dataframe with index for species_left_out.
+    '''
 
     t=time
     w=10**12
@@ -248,16 +250,13 @@ def simulate_leave_one_out_exp(tfs=4, time=48, crossfeeding=True, old=False):
     for s, df in sp_abun.items():
         # Get the last row
         last_row = df.iloc[-1]
-        # Convert Series to DataFrame with 1 row
         last_row_df = pd.DataFrame(last_row).T
-        # Set the index to the value of the original last row's index
         last_row_df.index = [df.index[-1]]
         # Add a column for species_left_out
         last_row_df['species_left_out'] = s
         rows.append(last_row_df)
-    # Concatenate all rows
+    #concatenate rows, set index
     result_df = pd.concat(rows)
-    # Set index to species_left_out
     result_df.set_index('species_left_out', inplace=True)
     result_df = result_df.fillna(0)
     result_df = result_df.div(result_df.sum(axis=1), axis=0)
@@ -266,31 +265,33 @@ def simulate_leave_one_out_exp(tfs=4, time=48, crossfeeding=True, old=False):
 
 
 def process_leave_out_experiment(loo_data):
+    
     loo_data = pd.read_table(loo_data, index_col=0)
     df = loo_data
+
+    #convert column values to species
     df_main = df.drop(columns=["-1", "-2"], errors="ignore").copy()
     column_index_to_species = {
         (i+1): col.split("-")[1] for i, col in enumerate(df_main.columns)
         if "-" in col and col != "Total"
     }
-
     species_cols = [col for col in df_main.columns if "-" in col and col != "Total"]
     df_abundances = df_main[species_cols].copy()
-    df_abundances.columns = [col.split("-")[1] for col in species_cols]  # → '1319', etc.
+    df_abundances.columns = [col.split("-")[1] for col in species_cols] 
+
+    #renormalize to sum to 1 for each sample
     row_totals = df_abundances.sum(axis=1)
     df_abundances_normalized = df_abundances.div(row_totals, axis=0)
 
-    # Step 5: Get left-out species from original df using column index mapping
+    #get left-out species from original df using column index mapping
     left_out_species = []
     for _, row in df.iterrows():
         species1 = column_index_to_species.get(int(row["-1"]), None)
         species2 = column_index_to_species.get(int(row["-2"]), None)
         left_out_species.append((species1, species2))
 
-    # Step 6: Add left_out column
+    #add left_out column
     df_abundances_normalized["left_out"] = left_out_species
-
-    # Step 7: Build dictionary
     species_dict = {}
     unique_species = pd.unique([s for pair in df_abundances_normalized["left_out"] for s in pair])
 
@@ -306,17 +307,26 @@ def process_leave_out_experiment(loo_data):
     final_df.set_index('species_left_out', inplace=True)
     final_df = final_df.div(final_df.sum(axis=1), axis=0)
 
+    #fill diagonals with 0s (pair is same species twice)
     exp_loo_df = final_df.fillna(0)
 
     return exp_loo_df
 
 def get_rescaled_abun(whole, row):
+    '''
+    Artificuially leave out one species from the whole community dataframe, used for normalizing LOO data.
+    '''
     dropped = whole.drop(row['i'], errors='ignore')
     rescaled = dropped / dropped.sum()
     val = rescaled.get(row['sp'])
     return float(val) if val is not None else float('nan')
 
 def calc_sim_loo_effects(sim_loo_df, whole_comm_sim_df):
+    '''
+    Calculate W_i effect on species j when i is left out. Use whole community data to 
+    normalize, part of the process of calculating episttasis effects.
+    '''
+
     loo_sim_vals = sim_loo_df.melt(ignore_index=False).reset_index()
     loo_sim_vals.columns = [['i', 'sp', 'abun_sp']]
     loo_sim_vals[['i', 'sp']] = loo_sim_vals[['i', 'sp']].applymap(utils.get_species_name)
@@ -335,38 +345,6 @@ def calc_sim_loo_effects(sim_loo_df, whole_comm_sim_df):
 
     return loo_sim_vals
 
-def main(args):
-    OTU_dict = load_OTU_table(args.otu_table)
-    df_a, df_a_reps = make_df_all(OTU_dict)
-    df_b, df_b_reps = load_experiment_2_df(args.exp2_table)
-
-    df_sp_sim, df_met_sim = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False)
-    df_sp_sim_nc, df_met_sim_nc = simulate_whole_community_exp(tfs=4, crossfeeding=False, t0_abun=False)
-    df_sp_noarth, met_noarth = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False, no_arth=True)
-
-    exp_loo_df = process_leave_out_experiment(args.loo_data)
-    sp_loo, met_loo = simulate_leave_one_out_exp()
-    sp_nc, met_nc = simulate_leave_one_out_exp(crossfeeding=False)
-    sim_loo_effects = calc_sim_loo_effects(sp_loo, df_sp_sim)
-
-    out_dir = Path(args.out)
-    out_dir.mkdir(exist_ok=True, parents=True)
-    df_a.to_csv(out_dir / "df_a.csv")
-    df_a_reps.to_csv(out_dir / "df_a_reps.csv", index=False)
-    df_b.to_csv(out_dir / "df_b.csv")
-    df_b_reps.to_csv(out_dir / "df_b_reps.csv", index=False)
-    df_sp_sim.to_csv(out_dir / "wc_sp_sim.csv")
-    df_met_sim.to_csv(out_dir / "wc_met_sim.csv", index=False)
-    df_sp_sim_nc.to_csv(out_dir / "wc_sp_sim_nc.csv")
-    df_met_sim_nc.to_csv(out_dir / "wc_met_sim_nc.csv", index=False)
-    df_sp_noarth.to_csv(out_dir / "df_sp_noarth.csv")
-    met_noarth.to_csv(out_dir / "met_noarth.csv", index=False)
-    sp_loo.to_csv(out_dir / "sp_loo.csv") 
-    sp_nc.to_csv(out_dir / "sp_loo_nc.csv")
-    exp_loo_df.to_csv(out_dir / "exp_loo_df.csv")
-    sim_loo_effects.to_csv(out_dir / "sim_loo_effects.csv", index=False)
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--otu-table", type=Path, required=True, help="Path to whole-community OTU table")
@@ -374,5 +352,44 @@ if __name__ == "__main__":
     parser.add_argument("--loo-data", type=Path, required=True, help="Path to leave-one-out OTU data")
     parser.add_argument("--out", type=Path, default="results", help="Directory to save processed output")
     args = parser.parse_args()
-    main(args)
+
+    #SETUP OUTPUT DIR AND FILE STRUCTURE
+    out_dir = Path(args.out)
+    out_dir.mkdir(exist_ok=True, parents=True)
+    
+    exp_whole_comm = args.out / "exp_whole_comm"
+    sim_whole_comm = args.out / "sim_whole_comm"
+    sim_loo = args.out / "sim_loo"
+    exp_whole_comm.mkdir(exist_ok=True)
+    sim_whole_comm.mkdir(exist_ok=True)
+    sim_loo.mkdir(exist_ok=True)
+
+    #PROCESS EXPERIMENTAL DATA
+    OTU_dict = load_OTU_table(args.otu_table)
+    df_a, df_a_reps = make_df_all(OTU_dict)
+    df_b, df_b_reps = load_experiment_2_df(args.exp2_table)
+
+    #SIMULATE CRM FOR WHOLE COMMUNITY
+    df_sp_sim, df_met_sim = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False)
+    df_sp_sim_nc, df_met_sim_nc = simulate_whole_community_exp(tfs=4, crossfeeding=False, t0_abun=False)
+    df_sp_noarth, met_noarth = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False, no_arth=True)
+
+    #PROCESS AND SIMULATE LEAVE-ONE-OUT DATA
+    exp_loo_df = process_leave_out_experiment(args.loo_data)
+    sp_loo, met_loo = simulate_leave_one_out_exp()
+    sp_nc, met_nc = simulate_leave_one_out_exp(crossfeeding=False)
+    sim_loo_effects = calc_sim_loo_effects(sp_loo, df_sp_sim)
+
+    #SAVE PROCESSED DATA
+    df_a.to_csv(exp_whole_comm / "df_a.csv")
+    df_a_reps.to_csv(exp_whole_comm / "df_a_reps.csv", index=False)
+    df_b.to_csv(exp_whole_comm / "df_b.csv")
+    df_b_reps.to_csv(exp_whole_comm / "df_b_reps.csv", index=False)
+    df_sp_sim.to_csv(sim_whole_comm / "wc_sp_sim.csv")
+    df_sp_sim_nc.to_csv(sim_whole_comm / "wc_sp_sim_nc.csv")
+    df_sp_noarth.to_csv(sim_whole_comm / "df_sp_noarth.csv")
+    sp_loo.to_csv(sim_loo / "sp_loo.csv") 
+    sp_nc.to_csv(sim_loo / "sp_loo_nc.csv")
+    exp_loo_df.to_csv(out_dir / "exp_loo_df.csv")
+    sim_loo_effects.to_csv(sim_loo / "sim_loo_effects.csv", index=False)
 
