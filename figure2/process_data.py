@@ -8,57 +8,47 @@ import os
 import pandas as pd
 import numpy as np
 import statistics
-sys.path.append('../.')
+sys.path.append('.')
 import utils
-
-growth_dir = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jing_syncom_project_Nov2023/DATA/Growth'
 
 def process_all_metabolite_data(
         data,           # utils.load_all_metdata()
         met_classes,    # dict: {class: [list of metabolites]}
         ODs,            # utils.load_od_data()
-        tps,            # utils.tps, e.g. ['1','2','3','4']
+        tps,            # utils.tps
         alpha_df        # utils.load_met_conc()
 ):
     """
-    Processes the nested metabolite data structure and returns:
+    Processes experimental metabolite data and returns:
 
-      1. met_class_df – tidy metabolite → class mapping
+      1. met_class_df – utility metabolite → class mapping
       2. met_time_df  – longitudinal metabolite data
-      3. met_dR_df    – dR/R/dt
+      3. met_dR_df    – dR/R/dt - used for fitting CRM growth parameter
       4. od_time_df   – longitudinal OD data (species × time × OD)
 
-    Species codes are converted to species names using utils.get_species_name().
     """
 
-    # ---------------------------------------------------------
-    # Build tidy metabolite-class dataframe
-    # ---------------------------------------------------------
+    #build metabolite-category df from dict
     met_class_list = [(m, cls) for cls, mets in met_classes.items() for m in mets]
     met_class_df = pd.DataFrame(met_class_list, columns=["metabolite", "metabolite_class"])
     met_to_class = dict(zip(met_class_df.metabolite, met_class_df.metabolite_class))
 
-    # ---------------------------------------------------------
-    # Output DataFrames
-    # ---------------------------------------------------------
+    #output dfs
     time_rows, dR_rows, od_rows = [], [], []
 
-    # Flatten alpha table
+    #flatten initial metabolite concentrations to list
     alpha_values = alpha_df.values.flatten().tolist()
 
-    # =========================================================
-    # Loop through species
-    # =========================================================
+    #for each species
     for species_code, sdata in data.items():
+
         species_name = utils.get_species_name(species_code)
 
-        # Time intervals using sucrose
+        #calculate time between exometabolomics sampling points
         suc_times = [sdata["sucrose"][tp]["Time"] for tp in tps if "sucrose" in sdata and tp in sdata["sucrose"]]
         tintervals = utils.calc_interval(suc_times) if suc_times else None
 
-        # ---------------------------
-        # Build OD dataframe
-        # ---------------------------
+        #construct OD per time point df
         for tp in tps:
             met_for_time = next((m for m in met_to_class if m in sdata and tp in sdata[m]), None)
             if met_for_time and f"T{tp}" in ODs[species_code]:
@@ -68,21 +58,20 @@ def process_all_metabolite_data(
                     "OD": ODs[species_code][f"T{tp}"]
                 })
 
-        # ---------------------------
-        # Loop over metabolites
-        # ---------------------------
+        #construct normalized metabolite abundance timecourse dataframe
         for met, cls in met_to_class.items():
             if met not in sdata:
                 continue
 
-            # Metabolite-time dataframe
             for tp in tps:
                 if tp not in sdata[met]:
                     continue
                 entry = sdata[met][tp]
                 reps = [entry[r] for r in ["R1","R2","R3","R4"] if r in entry]
-                if not reps:  # silently skip empty lists
+                if not reps:  #skip empty lists
                     continue
+
+                #take the median abundance across replicates
                 time_rows.append({
                     "species": species_name,
                     "metabolite": met,
@@ -91,7 +80,7 @@ def process_all_metabolite_data(
                     "median_val": statistics.median(reps)
                 })
 
-            # dR/R/dt dataframe
+            #construct dR/R/dt dataframe
             try:
                 a_index = list(met_class_df.metabolite).index(met)
                 alpha = alpha_values[a_index]
@@ -108,7 +97,7 @@ def process_all_metabolite_data(
                 if reps:
                     R_vals.append(statistics.median(reps) * alpha)
                 else:
-                    R_vals.append(np.nan)  # silently use NaN if no replicates
+                    R_vals.append(np.nan)  #use NaN if no replicates
 
             dt_vals = tintervals[:len(R_vals)] if tintervals else [np.nan]*len(R_vals)
 
@@ -134,6 +123,8 @@ def process_all_metabolite_data(
                     "dR/Rdt": dR_val
                 })
 
+    #switch from normalized metabolite abundance (value of 1 means no change in abundance compared to blank)
+    #instead use metabolite usage where + means production and - means consumption, still relative to blank abundances
     met_time_df = pd.DataFrame(time_rows)
     met_time_df['median_usage'] = met_time_df['median_val'] - 1
     met_dR_df = pd.DataFrame(dR_rows)
@@ -170,6 +161,7 @@ def compile_growth_data(sps, growth_data_dir):
     R4 = load_tab_data(os.path.join(growth_data_dir, 'NLDM-30C-R4.txt'))
     R5 = load_manual_growth(os.path.join(growth_data_dir,'121122_mcafes_growth.csv'))
 
+    #Select continuous sampling data from slow growing species
     all_data = []
     for sp in sps:
         if sp in ['1338']:
@@ -208,6 +200,8 @@ def gparam_dict_to_df(g_param_dict):
 
 def mcrm_initialparams_run(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, step=0.01):
     """Simulate monoculture growth using initial parameters."""
+
+    #define model parameters
     w = 1e12
     Cmatrix = utils.derive_cmatrix()
     D_dict = utils.derive_Dmatrix_perspecies()
@@ -216,16 +210,21 @@ def mcrm_initialparams_run(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, st
     init_met_conc = utils.load_met_conc().rename(columns={"Concentration (g/mL)": "x0"})
     init_sp = pd.DataFrame(0.01 * cfu_conv, index=glist.index, columns=['x0'])
 
+    #save abundances of metabolites and species at each time step
     metab_x_dict = {}
+
+    #subset to one species at a time to simulate monoculture growth
     for i, sp in enumerate(sps):
         C_i = Cmatrix.loc[[sp]]
         g_i = glist.loc[[sp]]
         l_i = l.loc[[sp]]
+
+        #run simulation
         x0_combined = pd.concat([init_sp.loc[[sp]]['x0'], init_met_conc])
-        params = utils.mcrm_params('eye', x0_combined, C_i, D_dict, l_i, g_i,
-                                   1e9, w, 1e9, 0, 0.04, time, step)
+        params = utils.mcrm_params('eye', x0_combined, C_i, D_dict, l_i, g_i, 1e9, w, 1e9, 0, 0.04, time, step)
         sp_x, met_x = utils.run_mcrm(params)
         metab_x_dict[sp] = met_x
+        
         if i == 0:
             tot_sp_x = sp_x
         else:
@@ -233,7 +232,7 @@ def mcrm_initialparams_run(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, st
         if plot:
             print(utils.get_species_name(sp))
 
-    # Convert D_dict-style metabolite dictionaries to long dataframe
+    #convert D_dict-style metabolite dictionaries to long dataframe
     metab_df = pd.concat([df.assign(species=sp, time=df.index) for sp, df in metab_x_dict.items()],
                          axis=0).reset_index(drop=True)
 
@@ -244,12 +243,17 @@ def run_monoculture(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, step=0.01
     """Simulate monoculture growth using fitted parameters."""
     w = 1e12
     metab_x_dict = {}
+    
+    #subset to one species at a time to simulate monoculture growth
     for i, sp in enumerate(sps):
+        
+        #load fitted parameters
         Cmatrix, D_dict, l, glist, cfu = utils.load_fitted_params(sps=[sp])
+
+        #simulate, save species and metabolite abundance at each timestep
         init_sp = pd.DataFrame(0.01 * cfu_conv, index=glist.index, columns=['x0'])
         x0_combined = pd.concat([init_sp['x0'], utils.load_met_conc().rename(columns={"Concentration (g/mL)": "x0"})])
-        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist,
-                                   cfu_conv, w, cfu_conv, 0, 0.04, time, step)
+        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu_conv, w, cfu_conv, 0, 0.04, time, step)
         sp_x, met_x = utils.run_mcrm(params)
         metab_x_dict[sp] = met_x
         if i == 0:
@@ -257,41 +261,40 @@ def run_monoculture(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, step=0.01
         else:
             tot_sp_x[sp] = sp_x.values
 
+    #convert D_dict-style metabolite dictionaries to long dataframe
     metab_df = pd.concat([df.assign(species=sp, time=df.index) for sp, df in metab_x_dict.items()],
                          axis=0).reset_index(drop=True)
 
     return tot_sp_x, metab_df
 
 
-def main():
-    # -------------------------
-    # ARGUMENTS
-    # -------------------------
-    growth_dir = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jing_syncom_project_Nov2023/DATA/Growth'
+if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "--growth_data_dir", type=Path, default=growth_dir,
+        "--growth_data_dir", type=Path,
         help="Directory with plate reader OD data for monoculture experiments"
     )
     parser.add_argument(
-        "--out", type=Path, default="processed_data",
+        "--out", type=Path, default="data",
         help="Directory to save output CSVs"
     )
     args = parser.parse_args()
 
-    # Make main output folder
+    #add output folder structure
     args.out.mkdir(exist_ok=True, parents=True)
-
-    # Make subfolders for CRM parameter outputs
+    
     init_crm_dir = args.out / "init_crm_params"
     final_crm_dir = args.out / "final_crm_params"
+    mono_sim_dir = args.out / "monoculture_sim"
+    mono_exp_dir = args.out / "monoculture_exp"
+    
     init_crm_dir.mkdir(exist_ok=True)
     final_crm_dir.mkdir(exist_ok=True)
+    mono_sim_dir.mkdir(exist_ok=True)
+    mono_exp_dir.mkdir(exist_ok=True)
 
-    # -------------------------
-    # PROCESS METABOLITE DATA
-    # -------------------------
+    #process experimental monoculture metabolite data
     metab_class_df, metab_time_df, metab_dR_df, od_time_df = process_all_metabolite_data(
         utils.load_all_metdata(),         
         utils.load_met_classes(),   
@@ -300,34 +303,30 @@ def main():
         utils.load_met_conc()       
     )
 
-    # -------------------------
-    # PROCESS GROWTH DATA
-    # -------------------------
-    growth_df_all_timepoints = compile_growth_data(utils.sps, growth_dir)
+    #PROCESS DATA
+    
+    #process experimental monoculture growth data
+    growth_df_all_timepoints = compile_growth_data(utils.sps, args.growth_data_dir)
     growth_df_clean = pd.DataFrame.from_dict(
         utils.load_od_data(path=os.path.join(args.growth_data_dir, 'od_timepoints_1211.csv')),
         orient='columns'
     )
 
-    # -------------------------
-    # LOAD CRM PARAMETERS
-    # -------------------------
-    # Final fitted
-    cmat_fitted, d_dict_fitted, l_fitted, glist_fitted, cfu = utils.load_fitted_params()
-    
-    # Initial
+    #derive initial CRM parameter estimates
     gparam_df = gparam_dict_to_df(utils.derive_g(for_plot=True))
     cmat_init = utils.derive_cmatrix(norm=False)
     D_dict_init = utils.derive_Dmatrix_perspecies()
     glist_init = utils.derive_g()
     l_init = pd.DataFrame(0.2, index=cmat_init.index, columns=cmat_init.columns)
 
-    # -------------------------
-    # RUN MONOCULTURE CRM SIMULATIONS
-    # -------------------------
+    #load simulated annealing fitted CRM parameters
+    cmat_fitted, d_dict_fitted, l_fitted, glist_fitted, cfu = utils.load_fitted_params()
+
+    #run monoculture simulations with initial and fitted parameters
     init_sp_mono, init_met_df = mcrm_initialparams_run()
     fit_sp_mono, fit_met_df = run_monoculture()
-    #save only 0.1 intervals for metabolite df
+    
+    #save only 0.1 intervals for metabolite df, very large
     def is_multiple_of_point1(x, tol=1e-6):
         return abs((x / 0.1) - round(x / 0.1)) < tol
 
@@ -335,37 +334,33 @@ def main():
     fit_met_df  = fit_met_df[fit_met_df['time'].apply(is_multiple_of_point1)]
     init_met_df['time'] = init_met_df['time'].round(1)
     fit_met_df['time'] = fit_met_df['time'].round(1)
-    
-    # -------------------------
-    # SAVE DATAFRAMES
-    # -------------------------
 
-    # Experimental metabolomics and growth outputs
+    #SAVE DATA
+
+    #experimental metabolomics and growth outputs
     metab_class_df.to_csv(args.out / "met_class_df.csv", index=False)
-    metab_time_df.to_csv(args.out / "met_time_df.csv", index=False)
-    metab_dR_df.to_csv(args.out / "met_dR_df.csv", index=False)
-    od_time_df.to_csv(args.out / "od_time_df.csv", index=False)
-    growth_df_all_timepoints.to_csv(args.out / "growth_df_all_timepoints.csv", index=False)
-    growth_df_clean.to_csv(args.out / "growth_df_clean.csv", index=False)
+    metab_time_df.to_csv(mono_exp_dir / "met_time_df.csv", index=False)
+    metab_dR_df.to_csv(mono_exp_dir / "met_dR_df.csv", index=False)
+    od_time_df.to_csv(mono_exp_dir / "od_time_df.csv", index=False)
+    growth_df_all_timepoints.to_csv(mono_exp_dir / "growth_df_all_timepoints.csv", index=False)
+    growth_df_clean.to_csv(mono_exp_dir / "growth_df_clean.csv", index=False)
 
-    # Initial CRM parameters
+    #initial CRM parameters
     gparam_df.to_csv(init_crm_dir / "gparam_df.csv", index=False)
     cmat_init.to_csv(init_crm_dir / "cmat_init.csv")
     pd.concat([df.assign(species=sp) for sp, df in D_dict_init.items()]).to_csv(init_crm_dir / "d_dict_init.csv", index=False)
     l_init.to_csv(init_crm_dir / "l_init.csv")
     glist_init.to_csv(init_crm_dir / "glist_init.csv")
 
-    # Final CRM parameters
+    #final CRM parameters
     cmat_fitted.to_csv(final_crm_dir / "cmat_fitted.csv")
     pd.concat([df.assign(species=sp) for sp, df in d_dict_fitted.items()]).to_csv(final_crm_dir / "d_dict_fitted.csv", index=False)
     l_fitted.to_csv(final_crm_dir / "l_fitted.csv")
     glist_fitted.to_csv(final_crm_dir / "glist_fitted.csv")
 
-    # Monoculture simulations
-    init_sp_mono.to_csv(args.out / "init_mono_sp_df.csv")
-    fit_sp_mono.to_csv(args.out / "fit_mono_sp_df.csv")
-    init_met_df.to_csv(args.out / "init_mono_met_df.csv", index=False)
-    fit_met_df.to_csv(args.out / "fit_mono_met_df.csv", index=False)
+    #monoculture simulations
+    init_sp_mono.to_csv(mono_sim_dir / "init_mono_sp_df.csv")
+    fit_sp_mono.to_csv(mono_sim_dir / "fit_mono_sp_df.csv")
+    init_met_df.to_csv(mono_sim_dir / "init_mono_met_df.csv", index=False)
+    fit_met_df.to_csv(mono_sim_dir / "fit_mono_met_df.csv", index=False)
 
-if __name__ == "__main__":
-    main()

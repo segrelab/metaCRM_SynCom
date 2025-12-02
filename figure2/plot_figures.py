@@ -1,16 +1,19 @@
+"""
+Figure 2: Plot all main and Supplementary figures for this section
+"""
 import scipy.stats
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.colors import LogNorm
-import matplotlib.gridspec as gridspec
-import argparse 
+import matplotlib.gridspec as gridspec 
 import os
 import sys
 import pandas as pd
 import numpy as np
+from argparse import ArgumentParser
 from pathlib import Path
-sys.path.append('../.')
+sys.path.append('.')
 import utils
 
 def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
@@ -18,20 +21,17 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     Plot resource consumption/production at last timepoint.
     Cluster species based on metabolite usage.
     """
-    # last timepoint
+    
+    #last timepoint
     last_tp_df = met_time_df[met_time_df['time'].notna()].copy()
     last_tp_df = last_tp_df.groupby(['species', 'metabolite', 'metabolite_class']).median_usage.last().reset_index()
     
-    # create pivot table: rows=metabolites, cols=species
+    #rows=metabolites, cols=species
     plot_df = last_tp_df.pivot(index='metabolite', columns='species', values='median_usage')
-    
-    # exclude spermidine if present
     plot_matrix = plot_df[plot_df.index != 'spermidine']
-    
-    
+
+    #order metabolites by class
     class_order = ["Sugar", "Organic_Acid", "Amino_Acid", "Nucleobase", "Others"]
-    
-    # reorder rows by class
     row_order = []
     for cls in class_order:
         mets_in_class = met_class_df.loc[met_class_df.metabolite_class == cls, "metabolite"].tolist()
@@ -39,7 +39,7 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
         row_order.extend(mets_in_class)
     plot_matrix = plot_matrix.loc[row_order]
     
-    # assign colors to classes in the same order as rows
+    #assign colors to classes in the same order as rows
     palette = sns.color_palette("husl", n_colors=len(class_order))
     lut = {}
     class_colors = {}
@@ -53,7 +53,7 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     plot_matrix.index.name = None
     plot_matrix.columns.name = None
     
-    # plot clustered heatmap
+    #plot clustered heatmap
     g = sns.clustermap(
         plot_matrix, row_colors=row_colors,
         figsize=(6,10), row_cluster=False,
@@ -65,14 +65,14 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode="anchor")
     g.fig.suptitle('Experimental Metabolite Usage', fontsize=14, y=1.02, x=0.42)
     
-    # modify colorbar
-    g.cax.set_title('Metabolite\nAbundance\n(culture - blank)', fontsize=10, pad=15)
+    #modify colorbar
+    g.cax.set_title('Metabolite\nUsage\n', fontsize=10, pad=15)
     cbar = g.cax
     ticks = cbar.get_yticks()
     tick_labels = [f'{int(t)}+' if t==1 else str(t) for t in ticks]
     cbar.set_yticklabels(tick_labels)
     
-    # custom row colors with class labels
+    #custom row colors with class labels
     class_label_positions = []
     for cls, metabolites in met_class_df.groupby('metabolite_class')['metabolite']:
         class_rows = [i for i, met in enumerate(plot_matrix.index) if met in metabolites.values]
@@ -86,7 +86,6 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     
     if outfile:
         plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    #plt.show()
     
     return col_order
 
@@ -100,13 +99,14 @@ def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
     num_species = len(species_list)
     fig, axes = plt.subplots(num_species, len(classes), figsize=(20, num_species*2))
     
-    # color map per metabolite class
+    #color map per metabolite class
     color_map = {}
     for cls in classes:
         mets = met_class_df[met_class_df['metabolite_class']==cls]['metabolite']
         fixed_colors = sns.color_palette("Spectral", n_colors=len(mets))
         color_map[cls] = {met: fixed_colors[i%len(fixed_colors)] for i, met in enumerate(mets)}
-    
+
+    #loop over species and metabolites, separated by metabolite class
     for s, sp in enumerate(species_list):
         sp_df = met_time_df[met_time_df['species']==sp]
         for c, cls in enumerate(classes):
@@ -127,7 +127,7 @@ def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
             ax.set_title(cls if s==0 else "")
             ax.set_ylabel(sp if c==0 else "", fontsize=12)
     
-    # legend
+    #long legend
     legend_elements = []
     for cls in classes:
         legend_elements.append(Patch(color='none', label=f"----- {cls} -----", linewidth=0))
@@ -142,7 +142,6 @@ def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
     
     if outfile:
         plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    #plt.show()
     return
 
 def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
@@ -155,7 +154,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
     
     fig, axes = plt.subplots(num_species, len(classes), figsize=(20, num_species*2))
     
-    # color map per metabolite class
+    #color map per metabolite class
     color_map = {}
     for cls in classes:
         mets = met_class_df[met_class_df['metabolite_class']==cls]['metabolite']
@@ -173,7 +172,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
                 if met_df_met.empty:
                     continue
 
-                # ensure initial point (0,0)
+                #ensure initial point (0,0)
                 x = [0] + met_df_met['N'].tolist()
                 y = [0] + met_df_met['dR/Rdt'].tolist()
 
@@ -192,7 +191,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
                 ax = axes[s,c] if num_species>1 else axes[c]
                 ax.set_ylim(y_min, y_max)
     
-    # legend
+    #legend
     legend_elements = []
     for cls in classes:
         legend_elements.append(Patch(color='none', label=f"----- {cls} -----", linewidth=0))
@@ -207,28 +206,14 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
     
     if outfile:
         plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    #plt.show()
+
     return
 
 def plot_Sfig_3(od_time_df, growth_df, ncols=5, figsize=(12, 8),
                          subset_line_color="red", full_line_color="blue", outfile=None):
     """
     Plots combined growth curves for multiple species.
-    
-    Parameters
-    ----------
-    od_time_df : pd.DataFrame
-        Tidy OD data for selected timepoints, with columns: 'species', 'time', 'OD'
-    growth_df : pd.DataFrame
-        Full growth curve data with columns: 'Strain', 'Time', 'OD'
-    ncols : int
-        Number of subplot columns
-    figsize : tuple
-        Figure size
-    subset_line_color : str
-        Color for OD subset line
-    full_line_color : str
-        Color for full growth curve
+    Plots OD measured from monoculture growth experiments and OD measured from monoculture exometabolomics sampling experiments.
     """
 
     growth_df = growth_df.copy()
@@ -243,7 +228,7 @@ def plot_Sfig_3(od_time_df, growth_df, ncols=5, figsize=(12, 8),
     for i, species in enumerate(species_list):
         ax = axes[i]
 
-        # Subset OD points
+        #OD for each species during metabolomics experiment
         subset_data = od_time_df[od_time_df['species'] == species].sort_values('time')
         ax.plot(subset_data['time'], subset_data['OD'], '-o',
                 color=subset_line_color, label='Exometab samples', lw=2)
@@ -251,7 +236,7 @@ def plot_Sfig_3(od_time_df, growth_df, ncols=5, figsize=(12, 8),
             ax.axvline(x=t, color=subset_line_color, linestyle=':', alpha=0.7)
             ax.plot(t, od, 'o', color=subset_line_color)
 
-        # Full growth curve
+        #full growth curve from unperturbed monoculture growth
         full_data = growth_df[growth_df['species'] == species].sort_values('Time')
         ax.plot(full_data['Time'], full_data['OD'], '-',
                 color=full_line_color, label='growth curve', lw=1.5, alpha=0.8)
@@ -260,47 +245,44 @@ def plot_Sfig_3(od_time_df, growth_df, ncols=5, figsize=(12, 8),
         ax.set_xlabel("Time (hr)")
         ax.set_ylabel("OD600")
         ax.grid(False)
-        #ax.legend(fontsize=8)
         ax.set_xlim(0,60)
 
-    # Hide unused subplots
+    #hide unused subplots
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
 
     fig.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    #plt.show()
+
     return
 
 def plot_Sfig_4(df, outfile=None):
     """
-    Reproduce Sfig3 plot from the tidy dataframe created by gparam_dict_to_df().
+    Plot growth and metabolite parameters used to analytically estimate CRM growth parameters.
     """
-
+    #subplot for each species
     species_list = df["species_code"].unique()
     N = len(species_list)
-
     fig = plt.figure(figsize=(10, 5))
-
     for i, sp in enumerate(species_list):
         ax = fig.add_subplot(3, 5, i+1)
 
         sub = df[df["species_code"] == sp].sort_values("point_index")
 
-        # plot points
+        #plot points
         ax.scatter(sub["x"], sub["y"], color="k", s=10)
 
-        # plot fitted line
+        #plot fitted line
         ax.plot(sub["x"], sub["yfit"], color="grey")
 
-        # species name
+        #species name
         ax.set_title(sub["species_name"].iloc[0], fontsize=10)
 
         ax.tick_params(labelsize=7)
         ax.xaxis.get_offset_text().set_size(7)
 
-        # R^2 (from r_value)
+        #R^2 (from r_value)
         r2 = sub["r_value"].iloc[0] ** 2
         ax.text(
             0.05, 0.95, f"$R^2 = {r2:.2f}$",
@@ -317,12 +299,11 @@ def plot_Sfig_4(df, outfile=None):
     if outfile:
         plt.savefig(outfile, dpi=600)
 
-    #plt.show()
     return
 
-def plot_Sfig_6(C1, C2, outfile=None):
+def plot_Sfig_5b(C1, C2, outfile=None):
     """
-    Compare C1 and C2 derived from fitting vs. analytical methods.
+    Compare Cmatrix values for metabolite uptake derived from fitting vs. analytical methods.
     """
     sps = utils.sps
     fig = plt.figure(figsize=(8, 5))
@@ -330,16 +311,16 @@ def plot_Sfig_6(C1, C2, outfile=None):
     palette = utils.get_species_colormap(name_key=False)
     ax = fig.add_subplot(111)
     
-    # Loop through each row and assign a color
+    #loop through each row and assign a species-specific color
     for i in range(C2.shape[0]):
         x = C2[i]
         y = C1[i]
         ax.scatter(x, y, label=utils.get_species_name(sps[i]), fc='none', ec=palette[sps[i]])
 
+    #figure plotting specifications
     min_val = min(C1.min(), C2.min())  
     max_val = max(C1.max(), C2.max())  
     ax.plot([min_val, max_val], [min_val, max_val], color='grey', linestyle='--', linewidth=1, label="1:1")
-    
     ax.set_xlabel(r'$C_{i\alpha}$ derived from analytical method (mL/hr)')
     ax.set_ylabel(r'$C_{i\alpha}$ fitted from simulated annealing (mL/hr)')
     ax.set_xscale('log')
@@ -349,7 +330,7 @@ def plot_Sfig_6(C1, C2, outfile=None):
 
     if outfile:
         plt.savefig(outfile, dpi=500)
-    #plt.show()
+
     return
 
 def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
@@ -357,15 +338,15 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     Plot Fitted C-Matrix parameters in Metabolite Classes.
     Use same species order as 2a plot, scale by energy conversion factor.
     """
-    # Build lookup: species_name → species_code
+    #species_name -> species_code
     name_to_code = {
         utils.get_species_name(code): code
         for code in Cmatrix.index
     }
-    # Convert sp_order (names) → species codes
+    #convert names to codes
     sp_order_codes = [str(name_to_code[name]) for name in sp_order]
     
-    #load Cmatrix
+    #load fitted Cmatrix
     Cmatrix, D_dict, l, glist, cfu = utils.load_fitted_params()
     plot_l = pd.DataFrame(l['sucrose'])
 
@@ -374,17 +355,11 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     plot_l = plot_l.loc[sp_order_codes]
     plot_matrix = Cmatrix
 
-    # -----------------------------------------------------------
-    # ENERGY SCALING
-    # -----------------------------------------------------------
+    #scale by energy conversion factor w, constant for all metabolites
     plot_matrix = Cmatrix * 10**12
 
-    # -----------------------------------------------------------
-    # MATCH CLASS ORDER FROM FIG 2A
-    # -----------------------------------------------------------
+    #build ordered column list based on class order
     class_order = ["Sugar", "Organic_Acid", "Amino_Acid", "Nucleobase", "Others"]
-
-    # build ordered column list based on class order
     ordered_cols = []
     for cls in class_order:
         mets = (
@@ -395,12 +370,10 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
         mets = [m for m in mets if m in plot_matrix.columns]
         ordered_cols.extend(mets)
 
-    # force this order on Cmatrix
+    #force this order on Cmatrix
     plot_matrix = plot_matrix[ordered_cols]
 
-    # -----------------------------------------------------------
-    # BUILD CONSISTENT COLOR LOOKUP (same as in 2A)
-    # -----------------------------------------------------------
+    #row colors based on metabolite classes
     palette = sns.color_palette("husl", n_colors=len(class_order))
     class_colors = {cls: palette[i] for i, cls in enumerate(class_order)}
 
@@ -414,9 +387,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
 
     col_colors = plot_matrix.columns.map(lut)
 
-    # -----------------------------------------------------------
-    # MAIN CLUSTERMAP
-    # -----------------------------------------------------------
+    #plot main clustermap
     g = sns.clustermap(
         plot_matrix,
         col_colors=col_colors,
@@ -434,9 +405,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
 
     ax = g.ax_heatmap
 
-    # -----------------------------------------------------------
-    # ADD CLASS BOUNDARIES AND LABELS
-    # -----------------------------------------------------------
+    #add metab category labels/colors
     start = 0
     boundaries = []
 
@@ -448,24 +417,18 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
         ax.axvline(end - 0.05, color='dimgray', linewidth=2)
         start = end
 
-    # class labels under columns
     for cls, start, end in boundaries:
         mid = (start + end) / 2
         ax.text(mid, -1.5, cls.replace("_", " "), ha='center', va='center', fontsize=12)
 
-    # -----------------------------------------------------------
-    # SHIFT HEATMAP TO THE RIGHT FOR g AND l COLUMNS
-    # -----------------------------------------------------------
+    #shift heatmap to include g and l parameter columns
     g.gs.update(left=0.01, right=0.90)
-
     gs = gridspec.GridSpec(1, 2, right=0.16, left=0.1, top=0.8, wspace=0.5)
 
     # keep vmin/vmax for shared (g,l) scale
     vmin, vmax = 0, 1.2
 
-    # -----------------------------------------------------------
-    # g COLUMN
-    # -----------------------------------------------------------
+    #plot g parameters by species
     ax2 = g.fig.add_subplot(gs[0])
     sns.heatmap(
         glist, cmap="Blues", cbar=False, ax=ax2,
@@ -476,9 +439,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     ax2.set_xlabel("$g_i$", fontsize=12)
     ax2.xaxis.set_label_position('top')
 
-    # -----------------------------------------------------------
-    # l COLUMN
-    # -----------------------------------------------------------
+    #plot l parameters by species
     ax3 = g.fig.add_subplot(gs[1])
     sns.heatmap(
         plot_l, cmap="Blues", cbar=False, ax=ax3,
@@ -489,9 +450,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     ax3.set_xlabel(r"$l_{\alpha}$", fontsize=12)
     ax3.xaxis.set_label_position('top')
 
-    # -----------------------------------------------------------
-    # COLORBAR + TITLE
-    # -----------------------------------------------------------
+    #other plotting options
     g.cax.set_title('Energy\nUptake Rate\n$C_{i\\alpha}\\cdot\\omega_{\\alpha}$',
                     fontsize=11, pad=15)
     g.fig.text(
@@ -503,11 +462,16 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
 
     if outfile:
         plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    #plt.show()
+
     return
 
 def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
-
+    """
+    Plot final growth abundance from simulating CRm monoculture growth with initial and fitted 
+    parameter estimated, compare to observed experimental final growth yields.
+    """
+    
+    #assume constant OD to cfu conversion for all strains
     cfu_conv = 10**9
 
     #load experimental monoculture data
@@ -515,7 +479,6 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
     exp_cfu_final = cfu_conv * od_final
     init_cfu_final = init_sp_x.loc[50]
     fitted_cfu_final = fit_sp_x.loc[50]  
-
 
     #calculate pearson correlation
     i_r, i_p = scipy.stats.pearsonr(exp_cfu_final.values.astype('float'), init_cfu_final.values.astype('float'))
@@ -549,70 +512,59 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
     return
 
 def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
-
-    # ---------------------------------------------------------
-    # 1. Create metabolite class → color mapping
-    # ---------------------------------------------------------
+    """
+    Plot final metabolite abundance from simulating CRM monoculture growth with fitted params
+    compared to observed experimental final timepoint metabolite abundances.
+    """
+    
+    #metabolite classes map to colors
     classes = met_class_df['metabolite_class'].unique()
     class_colors = {
         cls: c for cls, c in zip(classes, sns.color_palette("husl", n_colors=len(classes)))
     }
-
-    # Map metabolite → class
     met_to_class = dict(
         zip(met_class_df['metabolite'], met_class_df['metabolite_class'])
     )
 
-    # Representative species to extract metabolite list
+    #extract metabolite list
     rep_sp = fit_met_df['species'].unique()[0]
     rep_df = fit_met_df[fit_met_df['species'] == rep_sp]
-
     metabolite_cols = [
         c for c in rep_df.columns if c not in ['species', 'time']
     ]
 
-    # Colors for each metabolite
+    #assign colors for each metabolite
     colors = [
         class_colors.get(met_to_class.get(met, "Unknown"), "gray")
         for met in metabolite_cols
     ]
 
-    # ---------------------------------------------------------
-    # 2. Create figure
-    # ---------------------------------------------------------
+
     fig, axes = plt.subplots(nrows=3, ncols=5, figsize=(15, 9), sharex=True, sharey=True)
     plt.subplots_adjust(wspace=0.1, hspace=0.3)
     axes = axes.flatten()
 
-    # ---------------------------------------------------------
-    # 3. Loop over species from utils.sps (species codes)
-    # ---------------------------------------------------------
+    #loop over species, one species per subplot
     for sp_i, sp_code in enumerate(utils.sps):
         ax = axes[sp_i]
 
-        # Convert species code → species name
+        #convert species code to species name
         sp_name = utils.get_species_name(sp_code)
 
-        # ---------------------------------------------------------
-        # Extract experimental data for final timepoint
-        # ---------------------------------------------------------
+        #extract final timepoint per species
         exo_df = metab_time_df[metab_time_df['species'] == sp_name]
 
-        # Find final experimental hour (e.g., 33.5)
+        #find final experimental exometabolomics timepoint
         final_time_exp = exo_df['time'].max()
-
         exo_last = exo_df[exo_df['time'] == final_time_exp]
         exo_usage_map = dict(zip(exo_last['metabolite'], exo_last['median_usage']))
-
         exo_usage = np.array([
             exo_usage_map.get(m, np.nan) for m in metabolite_cols
         ], dtype=float)
 
-        # ---------------------------------------------------------
-        # Extract simulated data matching that same time
-        # ---------------------------------------------------------
+        #subset simulated metabolite data by species 
         sim_df = fit_met_df[fit_met_df['species'] == int(sp_code)].copy()
-
+        
         if sim_df.empty:
             ax.set_title(f"{sp_name} (no sim data)")
             print('sim_df is empty')
@@ -620,14 +572,13 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
 
         sim_df['time'] = sim_df['time'].astype(float)
 
-
-        # Simulated abundance at the final measured experimental time
+        #find equivalent final timepoint in simulated data
         final_row = sim_df.loc[
             np.isclose(sim_df['time'], final_time_exp, atol=1e-6),
             metabolite_cols
         ]
 
-        # Simulated abundance at the start of the simulation
+        #simulated abundance at the start of the simulation
         init_row = sim_df.loc[
             np.isclose(sim_df['time'], 0.0, atol=1e-6),
             metabolite_cols
@@ -636,21 +587,17 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
         end_resource_abundance = final_row.values.flatten().astype(float)
         init_resource_abundance = init_row.values.flatten().astype(float)
 
-        # Compute: (end - measured) / measured
+        #normalize the simulated final abundance by the initial, same normalization done in experiments with blank media
         with np.errstate(divide='ignore', invalid='ignore'):
             sim_usage = (end_resource_abundance - init_resource_abundance) / init_resource_abundance
 
-        # ---------------------------------------------------------
-        # Plot simulated vs. measured usage
-        # ---------------------------------------------------------
+        #plot simulated vs. measured usage
         ax.scatter(sim_usage, exo_usage,
                    color=colors, linewidth=1.5, s=60, alpha=0.5)
 
         ax.set_title(sp_name, fontsize=15)
 
-        # ---------------------------------------------------------
-        # Pearson correlation
-        # ---------------------------------------------------------
+        #pearson correlation
         mask = ~np.isnan(sim_usage) & ~np.isnan(exo_usage)
         if np.sum(mask) > 1:
             r_val, p_val = scipy.stats.pearsonr(sim_usage[mask], exo_usage[mask])
@@ -662,15 +609,13 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
                 ha='right', va='bottom',
                 transform=ax.transAxes, fontsize=14)
 
-        # Axes formatting
+        #axes formatting
         ax.set_xlim(-1.1, 1.1)
         ax.set_ylim(-1.1, 1.1)
         ax.axhline(y=0, c='grey', linewidth=0.6)
         ax.axvline(x=0, c='grey', linewidth=0.6)
 
-    # ---------------------------------------------------------
-    # 4. Labels & save
-    # ---------------------------------------------------------
+
     fig.text(0.5, 0.04, 'Simulated Resource Usage', ha='center', fontsize=18)
     fig.text(0.07, 0.5, 'Measured Resource Usage', va='center',
              rotation='vertical', fontsize=18)
@@ -681,41 +626,38 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
     return
 
 
-def main(data_dir, fig_dir):
-    os.makedirs(fig_dir, exist_ok=True)
-
-    # --- Load CSVs / Data ---
-    metab_class_df = pd.read_csv(os.path.join(data_dir, "met_class_df.csv"))
-    metab_time_df = pd.read_csv(os.path.join(data_dir, "met_time_df.csv"))
-    metab_dR_df = pd.read_csv(os.path.join(data_dir, "met_dR_df.csv"))
-    od_time_df = pd.read_csv(os.path.join(data_dir, "od_time_df.csv"))
-    growth_df_all_timepoints = pd.read_csv(os.path.join(data_dir, "growth_df_all_timepoints.csv"))
-    cmat_fitted = pd.read_csv(os.path.join(data_dir, "final_crm_params/cmat_fitted.csv"), index_col=0)
-    cmat_init = pd.read_csv(os.path.join(data_dir, "init_crm_params/cmat_init.csv"), index_col=0)
-    init_sp_mono = pd.read_csv(os.path.join(data_dir, "init_mono_sp_df.csv"), index_col=0)
-    fit_sp_mono = pd.read_csv(os.path.join(data_dir, "fit_mono_sp_df.csv"), index_col=0)
-    growth_df_clean = pd.read_csv(os.path.join(data_dir, "growth_df_clean.csv"))
-    glist_fitted = pd.read_csv(os.path.join(data_dir, "final_crm_params/glist_fitted.csv"))
-    l_fitted = pd.read_csv(os.path.join(data_dir, "final_crm_params/l_fitted.csv"),)
-    gparam_df = pd.read_csv(os.path.join(data_dir, "init_crm_params/gparam_df.csv"))
-    fit_met_df = pd.read_csv(os.path.join(data_dir, "fit_mono_met_df.csv"))
-    init_met_df = pd.read_csv(os.path.join(data_dir, "init_mono_met_df.csv"))
-
-    # --- Plotting ---
-    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(fig_dir, "Sfig_1.png"))
-    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(fig_dir, "Mfig_2a.png"))
-    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(fig_dir, "Sfig_2.png"))
-    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(fig_dir, "Sfig_3.png"))
-    plot_Sfig_6(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(fig_dir, "Sfig_6.png"))
-    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(fig_dir, "Mfig_2c.png"))
-    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(fig_dir, "Mfig_2b.png"))
-    plot_Sfig_4(gparam_df, outfile=os.path.join(fig_dir, "Sfig_4.png"))
-    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(fig_dir, "Mfig_2d_fit.png"))
-    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(fig_dir, "Mfig_2d_init.png"))
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate all figures from CSV data.")
+if __name__ == "__main__": 
+    parser = ArgumentParser(description="Generate all figures from CSV data.")
     parser.add_argument("--data_dir", required=True, help="Directory with input CSV files.")
-    parser.add_argument("--fig_dir", required=True, help="Directory to save output figures.")
+    parser.add_argument("--out", required=True, help="Directory to save output figures.")
     args = parser.parse_args()
-    main(args.data_dir, args.fig_dir)
+    os.makedirs(args.out, exist_ok=True)
+
+    #load processed data
+    metab_class_df = pd.read_csv(os.path.join(args.data_dir, "met_class_df.csv"))
+    metab_time_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/met_time_df.csv"))
+    metab_dR_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/met_dR_df.csv"))
+    od_time_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/od_time_df.csv"))
+    growth_df_all_timepoints = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/growth_df_all_timepoints.csv"))
+    cmat_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/cmat_fitted.csv"), index_col=0)
+    cmat_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/cmat_init.csv"), index_col=0)
+    init_sp_mono = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/init_mono_sp_df.csv"), index_col=0)
+    fit_sp_mono = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_sp_df.csv"), index_col=0)
+    growth_df_clean = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/growth_df_clean.csv"))
+    glist_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/glist_fitted.csv"))
+    l_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/l_fitted.csv"),)
+    gparam_df = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/gparam_df.csv"))
+    fit_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_met_df.csv"))
+    init_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/init_mono_met_df.csv"))
+
+    #plot figs
+    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
+    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
+    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
+    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
+    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
+    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
+    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
+    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
+    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
+    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
