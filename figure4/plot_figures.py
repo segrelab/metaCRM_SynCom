@@ -603,7 +603,7 @@ def plot_loo_onesp(df_exp, df_sim, sp, outfile=None):
         plt.savefig(outfile, dpi=500)
     plt.show()
 
-    return fig, ax
+    return 
 
 def load_exp_loo_effects(path_to_epistasis_vals):
     #Load epistasis values df and subset to LOO W_i values
@@ -620,11 +620,64 @@ def load_exp_loo_effects(path_to_epistasis_vals):
     
     return loo_exp_vals
 
+def plot_interaction_matrix(interaction_df, title, outfile=None):
+    plt.figure(figsize=(8,6))
+    sns.heatmap(interaction_df, cmap='RdBu_r')
+    plt.title(title)
+    plt.ylabel("Species i")
+    plt.xlabel("Species j")
+    plt.tight_layout()
+    if outfile:
+        plt.savefig(outfile, dpi=500)
+    plt.show()
+    return
+
+def plot_interaction_compare(co_culture_int_df, loo_interaction_df, outfile=None):
+    #plot correlation between the two interaction metrics
+    plt.figure(figsize=(6,6))
+    colormap = utils.get_species_colormap()
+
+    species = loo_interaction_df.columns
+    for sp_j in species:
+        for sp_i in species:
+            if sp_i == sp_j:
+                continue
+
+            if sp_i in loo_interaction_df.index:
+                if sp_j in co_culture_int_df.index:
+                    loo = loo_interaction_df.loc[sp_i, sp_j]
+                    co = co_culture_int_df.loc[sp_i, sp_j]
+                    plt.scatter(loo, co, color=colormap[sp_i])
+                    plt.axvline(0, c='grey', linestyle='-.', lw=0.8)
+                    plt.axhline(0, c='grey', linestyle='--', lw=0.8)
+
+    plt.xlabel('Leave-one-out Interactions', fontsize=12)
+    plt.ylabel('Co-culture Interactions', fontsize=12)
+
+    #legend
+    legend_handles = [
+        plt.Line2D([0], [0], marker='o', color='w',
+                   markerfacecolor=colormap[sp], markersize=8, label=sp)
+        for sp in species
+    ]
+    plt.legend(
+        handles=legend_handles,
+        title="Species",
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left',
+        borderaxespad=0.
+    )
+
+    plt.tight_layout()
+    if outfile:
+        plt.savefig(outfile, dpi=500)
+    plt.show()
+    return
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generate all figures from CSV data.")
     parser.add_argument("--data_dir", required=True, help="Directory with input CSV files.")
-    #parser.add_argument("--epistasis_data", required=True, help="Directory with experimental LOO effects data.")
     parser.add_argument("--out", required=True, help="Directory to save output figures.")
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
@@ -643,6 +696,9 @@ if __name__ == "__main__":
     sim_loo_effects = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sim_loo_effects.csv"))
     sim_loo_nc = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sp_loo_nc.csv"))
     sim_loo = pd.read_csv(os.path.join(args.data_dir, "sim_loo/sp_loo.csv"), index_col=0)
+
+    coculture_int = pd.read_csv(os.path.join(args.data_dir, 'coculture_interactions.csv'), index_col=0)
+    loo_int = pd.read_csv(os.path.join(args.data_dir, 'loo_interactions.csv'), index_col=0)
 
     #load experimental epistasis values
     exp_loo_effects = load_exp_loo_effects(os.path.join(args.data_dir, "epistasis_vals.csv"))
@@ -663,6 +719,9 @@ if __name__ == "__main__":
     plot_whole_community_correlation_arth(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, wc_sp_noarth, outfile=os.path.join(args.out, "Sfig_8.png"))
     plot_all_loo_effects(sim_loo_effects, exp_loo_effects, outfile=os.path.join(args.out, "loo_effects_bar.png"))
     plot_loo_abundance_comparison(sim_loo_plot, exp_loo_plot, outfile=os.path.join(args.out, "Mfig_4e.png"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(args.out, "Sfig_7b.png"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "Sfig_7a.png"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(args.out, "Sfig_8b.png"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "Sfig_8a.png"))
+    plot_interaction_matrix(coculture_int, title='Co-Culture Derived Interactions', outfile=os.path.join(args.out, "Sfig_7a.png"))
+    plot_interaction_matrix(loo_int, title='Leave-One_out Derived Interactions', outfile=os.path.join(args.out, "Sfig_7b.png"))
+    plot_interaction_compare(coculture_int, loo_int, outfile=os.path.join(args.out, "Sfig_7c.png"))
 

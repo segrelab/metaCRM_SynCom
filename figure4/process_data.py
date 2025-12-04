@@ -345,11 +345,202 @@ def calc_sim_loo_effects(sim_loo_df, whole_comm_sim_df):
 
     return loo_sim_vals
 
+def calc_coculture_interactions(coculture_data):
+    '''
+    From experimental co-culture data, calculate species-species interactions. 
+    If W_ii is the fitness (determined by OD) of a double inoculation of strain i, 
+    and W_ij is the fitness of i with j present, then the interaction of j on i is then defined as
+    R_ij = W_ij - W_ii / (W_ij + W_ii)
+    '''
+    #translate numbers in co-culture data to species codes
+    sp_key = {
+        's1': '1319','s2': '1320','s3': '1321','s4': '1323','s5': '1324',
+        's6': '1325','s7': '1327','s8': '1329','s9': '1330','s10': '1331',
+        's11': '1334','s12': '1337','s13': '1338','s14': '1336','s15': '1538',
+    }
+
+    #load co-culture data file
+    co_culture_df = pd.read_csv(coculture_data, index_col=0)
+
+    #Change column names to be same as abbreviated species_1/species_2 names
+    new_columns = [
+        'species_1', 'species_2', 'final_od', 's1', 's2', 's3', 's4', 's5', 's6', 
+        's7', 's8', 's9', 's10', 's11', 's12','s13', 's14', 's15', 's16', 's17'
+    ]
+    col_dict = {i: j for i, j in zip(co_culture_df.columns.to_list(), new_columns)}
+    co_culture_df.rename(columns=col_dict, inplace=True)
+
+    #remove samples with signficant contamination from 16S results
+    co_culture_df = co_culture_df[
+        ~(co_culture_df['species_1'].isin(['s16', 's17', 's18'])) | 
+        (co_culture_df['species_2'].isin(['s16', 's17', 's18']))
+    ]
+
+    #separate metadata and 16S data, turn 16S counts to relative abundance to evaluate contamination
+    excl_samples = [187, 200, 243, 244, 245, 246, 91, 94, 96, 119, 128, 131] #exclude these samples, not co-culture experiment
+    co_culture_md = co_culture_df[['species_1', 'species_2', 'final_od']]
+    co_culture_otu = co_culture_df.drop(['species_1', 'species_2', 'final_od'], axis=1)
+    sp_cols = co_culture_otu.columns.to_list()
+    sample_id = co_culture_md.index
+    co_culture_otu = np.array(co_culture_otu.astype(float))
+    co_culture_prop = pd.DataFrame(
+        co_culture_otu / co_culture_otu.sum(1, keepdims=True),
+        index=sample_id,
+        columns=sp_cols
+    )
+    co_culture_prop = co_culture_prop.rename(index={'sample_id': 'sample.id'})
+    co_culture_prop = co_culture_md.merge(co_culture_prop, on='sample.id')
+    co_culture_prop['prop_pure'] = co_culture_prop.apply(
+        lambda row: (row[row['species_1']] + row[row['species_2']]),
+        axis=1
+    )
+
+    #Samples where 2 co-cultured species make up < 80% of 16S Reads -> contamination
+    flagged_samples = co_culture_prop[co_culture_prop['prop_pure'] < 0.8].index
+
+    #keep only relevant, uncontaminated samples in df
+    remove_samples = list(set(flagged_samples).union(set(excl_samples)))
+    clean_co_culture_prop = co_culture_prop[~co_culture_prop.index.isin(remove_samples)]
+    clean_co_culture_prop = clean_co_culture_prop.drop(['s16', 's17', 'prop_pure'], axis=1)
+    df = clean_co_culture_prop.copy()
+
+    #get the list of species from the relative abundance columns
+    abun_cols = df.columns.difference(['species_1', 'species_2', 'final_od'])
+    species = abun_cols.tolist()
+
+    # Helper to get all ij experiments regardless of order
+    def match_ij(df, i, j):
+        return df[
+            ((df['species_1'] == i) & (df['species_2'] == j)) |
+            ((df['species_1'] == j) & (df['species_2'] == i))
+        ]
+
+    #compute self-growth for each species (ii experiments)
+    self_growth = {}
+    for sp in species:
+        ii_expts = match_ij(df, sp, sp)
+        if not ii_expts.empty:
+            # Use median in case of replicates
+            self_growth[sp] = np.median(ii_expts['final_od'] * ii_expts[sp])
+        else:
+            self_growth[sp] = np.nan  # will help detect missing data
+        if self_growth[sp] < 0.05:
+            self_growth[sp] = 0.05
+
+    #calculate the interaction matrix
+    species_names = [sp_key[sp] for sp in species]
+    interaction_matrix = pd.DataFrame(index=species_names, columns=species_names, dtype=float)
+
+    for i in species:
+        for j in species:
+            if i == j:
+                interaction = np.nan
+                interaction_matrix.loc[sp_key[i], sp_key[j]] = interaction
+                continue
+            ij_expts = match_ij(df, i, j)
+            if not ij_expts.empty and self_growth[i] is not np.nan:
+                mean_effect = np.mean(ij_expts['final_od'] * ij_expts[i])
+                if (mean_effect + self_growth[i]) == 0:
+                    interaction = np.nan
+                else:
+                    #interaction metric!
+                    interaction = (mean_effect - self_growth[i]) / (mean_effect + self_growth[i])
+                interaction_matrix.loc[sp_key[i], sp_key[j]] = interaction
+
+    #prepare df for saving with informative columns, index labels
+    interaction_matrix = interaction_matrix.astype(float)
+    interaction_matrix = pd.DataFrame(
+        interaction_matrix.values,
+        columns=[utils.get_species_name(i) for i in interaction_matrix.columns], 	
+        index=[utils.get_species_name(i) for i in interaction_matrix.columns]
+    )
+
+    #remove rows where all values are Nan
+    interaction_matrix.dropna(how='all', inplace=True)
+    
+    return interaction_matrix
+
+def calc_loo_interactions(whole_community_abun, loo_abun):
+
+    #load data
+    whole_community = pd.read_csv(whole_community_abun, sep="\t", index_col=0)
+    leave_one_out = pd.read_csv(loo_abun, sep="\t", index_col=0)
+
+    #get species columns
+    species_ids = utils.sps
+    species_cols = [col for col in whole_community.columns.to_list()[2:-1]]
+
+    #create a map from species ID to its full colname like '1-1319'
+    species_id_to_colname = {
+        species_id: f"{i+1}-{species_id}"
+        for i, species_id in enumerate(species_ids)
+    }
+
+
+    #normalize species abundances to relative abundances
+    whole_community_rel = whole_community[species_cols].div(whole_community['Total'], axis=0)
+    leave_one_out_rel = leave_one_out[species_cols].div(leave_one_out['Total'], axis=0)
+
+    species_code_to_row = {
+        code: row_num for col in leave_one_out_rel.columns
+        for row_num, code in [col.split('-')]
+    }
+
+    #subset whole community data to only last passage samples
+    p5_mask = whole_community['-1'] == 'P5'
+    whole_p5_avg = whole_community_rel[p5_mask].groupby(whole_community.loc[p5_mask, '-2']).mean().mean()
+
+    #compute average across replicates for each leave-one-out case
+    loo_interactions = pd.DataFrame(index=species_ids, columns=species_ids, dtype=float)
+    col_to_species = {col: col.split('-')[1] for col in species_cols}
+
+    #loop through leave-one-out experiments
+    for species_j in species_ids:
+        #rows where that species is left out
+        row_number = species_code_to_row[species_j]  
+        mask = leave_one_out['-1'].astype(str) == row_number
+        loo_avg = leave_one_out_rel[mask].mean()
+
+        #get the whole community profile and renormalize with that species artificially removed
+        wc_without = whole_p5_avg.drop(f"{list(col_to_species.keys())[species_ids.index(species_j)]}")
+        wc_without = wc_without / wc_without.sum()
+
+        #compute interactions with all other species
+        for species_i in species_ids:
+            if species_i == species_j:
+                continue
+            #skip species with very little whole community growth
+            if species_i in ('1334','1337','1338'):
+                continue
+            colname = species_id_to_colname[species_i]
+            w_ij = loo_avg[colname]
+            w_i_wt = wc_without[colname]
+        
+            if (w_ij + w_i_wt) == 0.0:
+                R_ij = np.nan
+            else:
+                #interaction metric!
+                R_ij = (w_i_wt - w_ij) / (w_i_wt + w_ij)
+            
+            loo_interactions.loc[species_i, species_j] = R_ij
+
+    #fill missing vals and diagonals with NaN
+    np.fill_diagonal(loo_interactions.values, np.nan)
+    loo_interactions = pd.DataFrame(loo_interactions.values, 
+                                    columns=[utils.get_species_name(i) for i in loo_interactions.columns], 
+                                    index=[utils.get_species_name(i) for i in loo_interactions.index])
+
+    #remove rows where all values are Nan
+    loo_interactions.dropna(how='all', inplace=True)
+
+    return loo_interactions
+
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--otu-table", type=Path, required=True, help="Path to whole-community OTU table")
-    parser.add_argument("--exp2-table", type=Path, required=True, help="Path to experiment 2 OTU table")
-    parser.add_argument("--loo-data", type=Path, required=True, help="Path to leave-one-out OTU data")
+    parser.add_argument("--otu_table", type=Path, required=True, help="Path to whole-community OTU table")
+    parser.add_argument("--exp2_table", type=Path, required=True, help="Path to experiment 2 OTU table")
+    parser.add_argument("--loo_data", type=Path, required=True, help="Path to leave-one-out OTU data")
+    parser.add_argument("--coculture_data", type=Path, required=True, help="Path to co-culture OTU/OD data")
     parser.add_argument("--out", type=Path, default="results", help="Directory to save processed output")
     args = parser.parse_args()
 
@@ -380,6 +571,10 @@ if __name__ == "__main__":
     sp_nc, met_nc = simulate_leave_one_out_exp(crossfeeding=False)
     sim_loo_effects = calc_sim_loo_effects(sp_loo, df_sp_sim)
 
+    #CALCULATE SPECIES-SPECIES INTERACTIONS
+    coculture_interactions = calc_coculture_interactions(args.coculture_data)
+    loo_interactions = calc_loo_interactions(args.otu_table, args.loo_data)
+
     #SAVE PROCESSED DATA
     df_a.to_csv(exp_whole_comm / "df_a.csv")
     df_a_reps.to_csv(exp_whole_comm / "df_a_reps.csv", index=False)
@@ -392,4 +587,6 @@ if __name__ == "__main__":
     sp_nc.to_csv(sim_loo / "sp_loo_nc.csv")
     exp_loo_df.to_csv(out_dir / "exp_loo_df.csv")
     sim_loo_effects.to_csv(sim_loo / "sim_loo_effects.csv", index=False)
+    coculture_interactions.to_csv(out_dir / "coculture_interactions.csv")
+    loo_interactions.to_csv(out_dir / "loo_interactions.csv")
 
