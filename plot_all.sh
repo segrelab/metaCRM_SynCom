@@ -27,5 +27,5 @@ python figure5/plot_figures.py --epistasis $DATA_FOLDER/epistasis_vals.csv --out
 
 #= Figure 6 =#
 
-
+python figure6/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
 
