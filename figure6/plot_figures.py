@@ -133,6 +133,7 @@ def plot_shannon_barplots(exp_subcom, sim_subcom, outfile=None):
     t_sim = ttest_ind(low['Shannon diversity sim'], high['Shannon diversity sim'])
 
     def p_to_stars(p):
+        print(p)
         if p < 0.0001: return "****"
         elif p < 0.001: return "***"
         elif p < 0.01: return "**"

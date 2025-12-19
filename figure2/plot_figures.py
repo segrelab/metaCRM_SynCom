@@ -484,7 +484,7 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
     i_r, i_p = scipy.stats.pearsonr(exp_cfu_final.values.astype('float'), init_cfu_final.values.astype('float'))
     f_r, f_p = scipy.stats.pearsonr(exp_cfu_final.values.astype('float'), fitted_cfu_final.values.astype('float'))
 
-    fig, axes = plt.subplots(2, 1, figsize=(5, 8), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(4.5, 7.5), sharex=True)
     palette = utils.get_species_colormap()
 
     for idx, val in enumerate(init_cfu_final):
@@ -497,13 +497,13 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
     for idx, val in enumerate(fitted_cfu_final):
         axes[1].scatter(exp_cfu_final.values[idx]/10**9, val/10**9, label=utils.get_species_name(fitted_cfu_final.index.to_list()[idx]), color='royalblue')
     axes[1].axline((0, 0), slope=1, c='grey', ls='--')
-    axes[1].set_xlabel('Measured Population Abundance ($10^9$ cfu/mL)', fontsize=12)
+    axes[1].set_xlabel('Measured Population Abundance ($10^9$ cfu/mL)', fontsize=11)
     axes[1].set_title('Optimized Model Parameters', fontsize=12)
     axes[1].set_ylim(0,1.6)
     axes[1].text(0.05, 0.75, f'r = {f_r:.2f}\np = {f_p:.2e}', 
              transform=axes[1].transAxes, fontsize=11)
 
-    fig.text(-0.02, 0.5, 'Predicted Population Abundance ($10^9$ cfu/mL)', va='center', rotation='vertical', fontsize=12)
+    fig.text(-0.02, 0.5, 'Predicted Population Abundance ($10^9$ cfu/mL)', va='center', rotation='vertical', fontsize=11)
     plt.tight_layout()
 
     if outfile:
@@ -616,8 +616,8 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
         ax.axvline(x=0, c='grey', linewidth=0.6)
 
 
-    fig.text(0.5, 0.04, 'Simulated Resource Usage', ha='center', fontsize=18)
-    fig.text(0.07, 0.5, 'Measured Resource Usage', va='center',
+    fig.text(0.5, 0.04, 'Simulated Metabolite Usage', ha='center', fontsize=18)
+    fig.text(0.07, 0.5, 'Measured Metabolite Usage', va='center',
              rotation='vertical', fontsize=18)
 
     if outfile:

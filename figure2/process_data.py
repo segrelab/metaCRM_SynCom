@@ -7,9 +7,12 @@ import sys
 import os
 import pandas as pd
 import numpy as np
+import pickle
 import statistics
 sys.path.append('.')
 import utils
+
+import random
 
 def process_all_metabolite_data(
         data,           # utils.load_all_metdata()
@@ -266,6 +269,312 @@ def run_monoculture(sps=utils.sps, cfu_conv=1e9, plot=False, time=500, step=0.01
                          axis=0).reset_index(drop=True)
 
     return tot_sp_x, metab_df
+
+
+############################################################################
+###   Simulated Annealing, Not run here but placed here for reference.   ###
+############################################################################
+
+### fit C and D matrices using exometabolomics and single species growth ###
+
+def isNaN(num):
+	return num!= num
+
+def residue(sp, x0, mu_i, w_alpha, Cmatrix_i, D, l_i, R_dict, sample_times, sample_ods, growth, finalOD, od_to_cfu, cfu_c, w1, w2):
+	""" 
+	set up a cost function to calculate the distance between simulated mets at each timepoints vs. exometabolomics measurement 
+	"""
+	# simulate dynamics of species growth and metabolite changes
+	params = mcrm_params ('eye', x0, Cmatrix_i, D, l_i, [mu_i], [cfu_c], w_alpha)
+	alpha = x0[params['varIdx']['resources']]
+	x = run_mcrm(params)
+
+	# determine the cost (difference from the measurements)
+	cost = 0
+	# difference in final OD
+	weight = 10    
+	cost = weight*(cfu_c*(x[-1].tolist())[0]/10**9 - finalOD*od_to_cfu/10**9)**2   # only consider the final OD
+
+	try: 
+		cost += weight*sum([(float(x[int(float(sample_times[sp][T]))].tolist()[0]/10**9) - float(sample_ods[sp][T]))**2 for T in ['T1', 'T2', 'T3'] if sample_ods[sp][T] != ''])   # compare to measured OD at sampling points
+
+	# difference in metabolites at each timepoint
+	weight2 = w2     
+	tps = [sample_times[sp][t] for t in sample_times[sp]]
+
+	for t_idx, t in enumerate(['1','2','3','4']):
+		if tps[t_idx] != '':
+			mets_sim = x[int(float(tps[t_idx]))][1:]
+			mets_frc_sim = [(alpha[met_idx] - met_abun)/alpha[met_idx] for met_idx, met_abun in enumerate(mets_sim)]
+			mets_ex = R_dict[sp][t]
+
+			for el_i, el in enumerate(mets_ex):
+				if not isNaN(el): 
+					if t != '4':
+						cost += weight2 * (mets_frc_sim[el_i] - el)**2
+					else: 
+						cost += weight2 * (mets_frc_sim[el_i] - el)**2
+
+	return cost 
+
+def small_step_perturbation(array, normed):
+	"""
+	perturbing each element of C by 5-10%
+	"""
+	new_array = np.zeros (shape=(array.shape[0], array.shape[1]))
+
+	for idx, el in enumerate(list(array[0])):
+		if el != 0 : 
+			perm = random.gauss (0, el*0.1)
+		else: 
+			perm = random.gauss (0, (el+10**-14)*0.1)
+		if el + perm > 0: new_array[0][idx] = el + perm
+		else: new_array[0][idx] = 0
+
+	if normed: 
+		# normalize distribution for each species
+		sum_of_rows = new_array.sum(axis=1)
+		new_array = new_array / sum_of_rows[:, np.newaxis]
+	return np.array (new_array)
+
+def small_step_perturbation_D(D, normed):
+	"""
+	pertubing D matrix 
+	"""
+	idx_mets = [i for i in range(D.shape[0]) if max(D[i].tolist())!=0]  # get a list of metabolites produced
+	new_D = np.zeros (shape=(D.shape[0], D.shape[1])) 
+	for i in idx_mets: 
+		array = D[i]
+		for j, el in enumerate(list(array)):
+			if i!=j: 
+				perm = random.gauss (0, el*0.1)
+				new_D[i][j] = el + perm 
+	# renorm
+	if normed: 
+		new_D = new_D / new_D.sum(0)
+		new_D = np.nan_to_num(new_D, copy=True, nan=0.0)
+	return new_D
+
+def small_step_perturbation_g(g):
+	"""
+	perturbing leakage fraction 
+	"""
+	g = random.gauss (0, 0.01*g) + g
+	return g
+
+def perturbation_cfu(c): 
+	"""
+	perturbing CFU conversion factor
+	"""
+	stepsize = 0.1
+	bounds = np.asarray([[0.001, 1]])
+	new_c = c + randn(len(bounds)) * stepsize
+	return new_c[0]
+
+def small_step_perturbation_lmatrix(l):
+	"""
+	perturbing l matrix
+	"""
+	stepsize = 0.01
+	bounds = np.asarray([[0.01, 1]])
+	new_l = np.zeros (shape=(l.shape[0], l.shape[1]))
+	for i in range(l.shape[0]):
+		l_p = l[i][0] + randn(len(bounds)) * stepsize
+		if l_p >= 0: 
+			for j in range(l.shape[1]):
+				new_l[i][j] = l_p[0]
+		else: 
+			for j in range(l.shape[1]):
+				new_l[i][j] = l[i][j]
+	return new_l
+
+def initialize_Dmatrix(sps, Cmatrix):
+	"""
+	initialize D matrix 
+	"""
+	R_dict, Tintervals = utils.get_timestep_resource_usage(sps) #use of each resource per species at 4 timepoints 
+	alpha = utils.load_met_conc()
+	D_dict = {}
+
+	for i, sp in enumerate(sps):
+		Cmatrix_i = Cmatrix[[i],:]
+		D_p = utils.derive_Dmatrix_perspecies(R_dict[sp], alpha, Cmatrix_i, True)
+		D_dict[i] = D_p 
+	return D_dict
+
+def simulated_annealing_randominitialization(sps, Cmatrix, w, growth_data, sa_params, modelname, runs):
+	"""
+	In N number of runs, initialize random Cmatrix, D matrix, and g, and perform simulated annealing for each species 
+	"""
+	# initialize Cmatrix
+	Cmatrix2 = np.zeros (shape=(Cmatrix.shape[0], Cmatrix.shape[1]))
+	C_params = []
+	for i in range (len(sps)):
+		C_array = Cmatrix[[i],:]
+		C_params.extend([el for el in list(C_array[0]) if el >0])
+	minC, maxC = min(C_params), max(C_params)
+	for i in range (len(sps)):
+		for j in range (Cmatrix.shape[1]):
+			new_C = random.uniform (minC, maxC)
+			Cmatrix2[i][j] = new_C
+	
+	# initialize mu
+	new_mu = [0]*len(sps)
+	for i in range (len(sps)):
+		new_mu[i] = random.uniform (0.1, 50)
+		new_mu[i] = random.randint (0, 50)
+
+	# initalize Dmatrix 
+	D_dict = {}
+	for i in range(len(sps)):
+		D = np.random.rand (Cmatrix.shape[1], Cmatrix.shape[1])
+		D_normed = D / D.sum(0)  # normalize D matrix 
+		D_dict[i] = D_normed    
+
+	# perform simulated annealing
+	simulated_annealing(sps, Cmatrix2, w, new_mu, growth_data, sa_params, modelname)
+
+
+def simulated_annealing(sps, Cmatrix, w, mu, growth_data, sa_params, modelname):
+	""" use simulated annealing approach to fit C matrix with the input of exometabolomics data and final OD abundance of each species in mono-culture growth """
+	# load measurements 
+	R_dict, Tintervals = utils.get_timestep_resource_usage(sps) #use of each resource per species at 4 timepoints 
+	OTU_dict = utils.load_otu_data()
+	sps_map = {1:'1319', 2:'1320', 3:'1321', 4:'1323', 5:'1324', 6:'1325', 7:'1327', 8:'1329', 9:'1330', 10:'1331', 11:'1334', 12:'1337', 13:'1338', 14:'1336', 15:'1538'}
+	inv_map = {v: k for k, v in sps_map.items()}
+
+	Times = utils.load_timepoints()
+	ODs   = utils.load_od_data()
+	alpha = utils.load_met_conc()
+
+	# simulated annealing parameters
+	n_iterations = sa_params[0]
+	step_size = sa_params[1] 
+	temp = sa_params[2]
+	w1, w2 = sa_params[3], sa_params[4]
+
+	for i in range (15):
+		sp = sps[i]
+		sp_idx = inv_map[sp]
+		od_to_cfu = 10**9
+		finalOD = float(ODs[sp]['T4']) * od_to_cfu / 10**9
+		growth = growth_data[sp]
+		x0_s = 0.01 * od_to_cfu
+		x0 = np.array (list(np.full((1, 1), x0_s)[0]) + list(alpha))
+
+		for run in range(1):
+			Cmatrix_i = Cmatrix[[i],:]
+			mu_i = 0.1*mu[i] # analytical solutions
+			D_p = fitDmatrix_perspecies (R_dict[sp], alpha, Cmatrix_i, True)  # analytical solutions 
+			D_p_normed = D_p / D_p.sum(0)  # normalize D matrix 
+			D = {0:D_p_normed}           # get species i D matrix
+			l = np.zeros (shape=(Cmatrix.shape[0], Cmatrix.shape[1]))    # leakage fraction ia
+			l.fill (0.2)   # initialize l
+			l_i = l[[i],:] 
+			cfu_c = 1  
+			# plot initial guess
+			init_params = mcrm_params('eye', x0, Cmatrix_i, D, l_i, [mu_i], [cfu_c], w)
+
+			best_theta = [mu_i, l_i, D[0], Cmatrix_i]   # permute mu, l and D 
+			best_sqDiff = residue (sp, x0, mu_i, w, Cmatrix_i, D, l_i, R_dict, Times, ODs, growth, finalOD, od_to_cfu, cfu_c, w1, w2)
+			curr, curr_sD = best_theta, best_sqDiff
+			temps, scores = list(), list()
+			for step in range(n_iterations):
+
+				candidate = [small_step_perturbation_g(curr[0]), small_step_perturbation_lmatrix(curr[1]), small_step_perturbation_D(curr[2], True), small_step_perturbation(curr[3], False)]
+
+				candidate_sD = residue (sp, x0, candidate[0], w, candidate[3],{0:candidate[2]}, candidate[1], R_dict, Times, ODs, growth, finalOD, od_to_cfu, cfu_c, w1, w2)
+
+				if candidate_sD < best_sqDiff: 
+					# store new best point
+					best_theta, best_sqDiff = candidate, candidate_sD
+                    
+				# diff between candidate and current point evaluation
+				diff = candidate_sD - curr_sD
+                
+				# calculate temperature for current epoch
+				t = temp / float(step+1)
+
+				if diff < 0: 
+					# store the new current point 
+					curr, curr_sD = candidate, candidate_sD 
+				else: 
+					# calcualte metropolis acceptance criterion
+					try: 
+						metropolis = math.exp (-diff/t)
+						if np.random.rand() < metropolis: 
+							curr, curr_sD = candidate, candidate_sD  # store the new current point 
+
+					except OverflowError: 
+						pass
+				
+				temps.append (t)
+				scores.append (curr_sD)
+		
+			best_params = mcrm_params('eye', x0, best_theta[3], {0:best_theta[2]}, best_theta[1], [best_theta[0]], [cfu_c], w)
+
+			pickle.dump(best_params, open(outpath+modelname+sp+'_run0.p', "wb"))
+
+
+def load_simulated_annealing_scores(inputfile):
+	"""
+	load results of all simulated annealing runs
+	"""
+	lines = [open(inputfile, 'r').read().strip("\n")][0].split('\n')
+	data = {}
+	for line in lines[1:]: 
+		tokens = line.split('\t')
+		sp, run = tokens[0], int(tokens[1]) 
+		temp = json.loads(tokens[2])
+		scores = json.loads(tokens[3])
+		if sp not in data: 
+			data[sp] = {run:{'T':temp, 'S': scores}}
+		else: 
+			data[sp][run] = {'T':temp, 'S': scores}
+	return data
+
+
+def get_best_param(sp_i, sp, sa_params, params_list, growth_data):
+	""" 
+	from all runs, get the param with the lowest score
+	"""
+	min_score, best_param = 1000, ''
+
+	# load measurements 
+	R_dict, Tintervals = utils.get_timestep_resource_usage(sps) #use of each resource per species at 4 timepoints 
+	OTU_dict = utils.load_otu_data()
+	sps_map = {1:'1319', 2:'1320', 3:'1321', 4:'1323', 5:'1324', 6:'1325', 7:'1327', 8:'1329', 9:'1330', 10:'1331', 11:'1334', 12:'1337', 13:'1338', 14:'1336', 15:'1538'}
+	inv_map = {v: k for k, v in sps_map.items()}
+
+	Times = utils.load_timepoints()
+	ODs   = utils.load_od_data()
+	alpha = utils.load_met_conc()
+
+	x0_s = 0.01 * 10**9
+	x0 = np.array (list(np.full((1, 1), x0_s)[0]) + list(alpha))
+	# load simulated annealing parameters
+	w1, w2 = sa_params[3], sa_params[4]
+	# load species specific data
+	finalOD = od_dict[inv_map[sp]][inv_map[sp]]
+	growth = growth_data[sp]
+	w = 10**12	
+	for params in params_list: 
+		C = params['C']
+		Cmatrix_i = params['C'] [[0],:]
+		mu_i = params['g'][0]
+		D = {0:params['D'][0]}
+		l_i = params['l'][[0],:]
+		cfu_i = params['cfu'][0]
+
+		score = residue(sp, x0, mu_i, w, Cmatrix_i, D, l_i, R_dict, Times, ODs, growth, finalOD, cfu_i, w1, w2)
+		if score < min_score: 
+			min_score = score
+			best_param = params 
+	return best_param
+
+######################################################################
+###   Derive and Save CRM Parameters and Monoculture Data cleanly  ###
+######################################################################
 
 
 if __name__ == "__main__":

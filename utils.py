@@ -519,7 +519,7 @@ def calc_ratios(OTU_dict, excl=removed_samples, use_norm_ratio=False):
                     ratio_dict[sp][sp2].append(ratio)
     return ratio_dict
 
-def norm_ratio (sp_frac):
+def norm_ratio(sp_frac):
     """
     normalize species abundance according to cell lysis efficiency (P0 ratio)
     sp_frac: fraction of species in a list
