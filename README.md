@@ -17,6 +17,7 @@ Synthetic microbial ecology aims at designing communities with desired propertie
   - `process_data.py`: A script that takes the raw data as input to perform processing and analysis and outputs files in the correct format for `plot_figures.py`.
 - `plot_all.sh`: A Bash script that runs all `figureX/plot_figures.py` scripts to generate all figures and place them in `figures/`.
 - `environment.yml`: A Conda environment file containing software versions used for data processing and figure generation.
+- `CrossFeed-o-gram`: Interactive Jupyter notebook for exploring metabolite-mediated microbial interactions inferred from the CRM and experimental data
 
 ## Conda Environment
 All analyses were performed within a specified Conda environment to ensure computational reproducibility. All simulations, parameter fitting, data processing, and figure generation were executed within this environment. The complete dependency specification, including exact package versions, is provided in `environment.yml`.
