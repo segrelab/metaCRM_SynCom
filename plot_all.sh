@@ -15,7 +15,7 @@ python figure2/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
 
 #= Figure 3 =#
 
-
+python figure3/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
 
 #= Figure 4 =#
 
