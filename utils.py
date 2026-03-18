@@ -8,23 +8,27 @@ import re
 import scipy.stats
 import statistics
 import glob
+from pathlib import Path
 # Used for some old versions of functions.
 import csv
 from scipy.integrate import odeint
 
 #DATA PATHS AND GLOBAL VARIABLES
-data_dir = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jings_data_backup_06112024'
-#od_data_path = data_dir+'/Growth/od_timepoints_1211.csv'
-od_data_path = data_dir+'/Exometabolomics/od_timepoints.csv'
-met_conc_path = data_dir+'/Exometabolomics/met_concentration.csv'
-met_classes_path = data_dir + '/Exometabolomics/met_category.csv'
-met_data_path = data_dir + "/Exometabolomics/*_processed.txt"
-timepoints_path = data_dir + '/Exometabolomics/timepoints.csv'
-cfu_conv_path = data_dir + '/Growth/cfu.csv'
+# Internal users should have environmental variable
+# CRM_DATA_DIR = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jings_data_backup_06112024'
+# CRM_MODEL_DIR = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jing_syncom_project_Nov2023'
+data_dir = Path(os.getenv('CRM_DATA_DIR', '/projectnb/cometsfba/Archived_misc/mCAFEs/Jings_data_backup_06112024'))
+model_dir = Path(os.getenv('CRM_MODEL_DIR', '/projectnb/cometsfba/Archived_misc/mCAFEs/Jing_syncom_project_Nov2023'))
+#od_data_path = data_dir / 'Growth' / 'od_timepoints_1211.csv'
+od_data_path = data_dir / 'Exometabolomics' / 'od_timepoints.csv'
+met_conc_path = data_dir / 'Exometabolomics' / 'met_concentration.csv'
+met_classes_path = data_dir / 'Exometabolomics' / 'met_category.csv'
+timepoints_path = data_dir / 'Exometabolomics' / 'timepoints.csv'
+cfu_conv_path = data_dir / 'Growth' / 'cfu.csv'
 sim_anneal_model_name = 'model3.5_0209'
-otu_table = data_dir + '/16S/co-culture/OTU-table.editied.csv'
-model_dir = '/projectnb/cometsfba/Archived_misc/mCAFEs/Jing_syncom_project_Nov2023'
-growth_files = glob.glob(data_dir + '/Growth' + '/NLDM*')
+otu_table = data_dir / '16S' / 'co-culture' / 'OTU-table.editied.csv'
+growth_files = data_dir.glob('/Growth/NLDM*')
+met_data_path = data_dir.glob('Exometabolomics/*_processed.txt')
 
 sps_to_name = {
   '1319': 'Lysobacter',
@@ -266,7 +270,7 @@ def load_all_metdata(sps=sps, path=met_data_path):
         warnings.warn("USING DIFFERENT DATA PATH THAN DEFAULT. Providing function with no defined data path will result in the use of the default path (preferred).", UserWarning)
     
     metDict = {}
-    files = [f for f in glob.glob(path) if os.path.isfile(f)]
+    files = [f for f in path if os.path.isfile(f)]
     for sp in sps:
         for f in files:
             if os.path.basename(f).split("_")[0] == sp:
@@ -533,7 +537,7 @@ def norm_ratio(sp_frac):
 ####  Parameter Inference and CRM Derivations  ####
 ###################################################
 
-def derive_cmatrix(sps=sps, metData=load_all_metdata(), ODs=load_od_data(), alpha_df=load_met_conc(), cfu_conv=load_cfu_conversion(), norm=False):
+def derive_cmatrix(sps=sps, metData=None, ODs=None, alpha_df=None, cfu_conv=None, norm=False):
     '''
     DERIVE C-MATRIX PARAMETERS ANALYTICALLY
 
@@ -554,7 +558,16 @@ def derive_cmatrix(sps=sps, metData=load_all_metdata(), ODs=load_od_data(), alph
 
     
     '''
-
+    # Avoiding function calls in definition line.
+    if metData is None:
+        metData = load_all_metdata()
+    if ODs is None:
+        ODs = load_od_data()
+    if alpha_df is None:
+        alpha_df = load_met_conc()
+    if cfu_conv is None:
+        cfu_conv = load_cfu_conversion()
+        
     # Define time points, metabolites and metabolite concentrations in media
     tps = ['1', '2', '3', '4']
     mets = list(metData['1319'].keys())
@@ -627,7 +640,7 @@ def derive_cmatrix(sps=sps, metData=load_all_metdata(), ODs=load_od_data(), alph
     
     return norm_matrix
 
-def derive_g (sps=sps, ODs=load_od_data(), alpha_df=load_met_conc(), metData=load_all_metdata(), Cmatrix=derive_cmatrix(norm=False), for_plot=False):
+def derive_g (sps=sps, ODs=None, alpha_df=None, metData=None, Cmatrix=None, for_plot=False):
     '''
     DERIVE GROWTH(g) PARAMETERS ANALYTICALLY
 
@@ -649,6 +662,15 @@ def derive_g (sps=sps, ODs=load_od_data(), alpha_df=load_met_conc(), metData=loa
 
     if for_plot=True, more than just the g_list is returned to be used to plot supplementary figure 3
     '''
+    # Avoiding function calls in definition line.
+    if ODs is None:
+        ODs = load_od_data()
+    if alpha_df is None:
+        alpha_df = load_met_conc()
+    if metData is None:
+        metData = load_all_metdata()
+    if Cmatrix is None:
+        Cmatrix = derive_cmatrix(norm=False)
 
     # Conversion factor from OD to CFU
     od_to_cfu = 10**9	
@@ -710,7 +732,7 @@ def derive_g (sps=sps, ODs=load_od_data(), alpha_df=load_met_conc(), metData=loa
 
     return g_list
 
-def derive_Dmatrix_perspecies(sps=sps, Cmatrix=derive_cmatrix(), alphas_df=load_met_conc(), norm=False):
+def derive_Dmatrix_perspecies(sps=sps, Cmatrix=None, alphas_df=None, norm=False):
     '''
     Provided the derived consumer matrix and data about production/consumption of metabolites in 
     monoculture experiments, derive the resource transformation matrix for each species independently. 
@@ -727,6 +749,12 @@ def derive_Dmatrix_perspecies(sps=sps, Cmatrix=derive_cmatrix(), alphas_df=load_
         resource transformation matrix (Dmatrix) for that species
     
     '''
+    # Avoiding function calls in definition line.
+    if Cmatrix is None:
+        Cmatrix = derive_cmatrix(norm=False)
+    if alpha_df is None:
+        alpha_df = load_met_conc()
+    
     R_dict, Tintervals = get_timestep_resource_usage()  # get the use of each resource by each species at 4 different timepoints
     D_dict = {}
     alphas = alphas_df.values.tolist()
@@ -779,7 +807,7 @@ def derive_Dmatrix_perspecies(sps=sps, Cmatrix=derive_cmatrix(), alphas_df=load_
 #################################################
 
 
-def mcrm_params(qual, x0, Cmatrix, D_dict, leakage, mu, cfu_c, w_alpha=10**8, cfu_conv=load_cfu_conversion(), m=0, k=0.04, time=48, step=0.01, old=False):
+def mcrm_params(qual, x0, Cmatrix, D_dict, leakage, mu, cfu_c, w_alpha=10**8, cfu_conv=None, m=0, k=0.04, time=48, step=0.01, old=False):
     """ 
     Construct the param structure for the MCRM ODE solver.
     Args: 
@@ -815,6 +843,10 @@ def mcrm_params(qual, x0, Cmatrix, D_dict, leakage, mu, cfu_c, w_alpha=10**8, cf
                 Form that can be passed to run_mcrm() function
     
     """
+    # Avoiding function calls on definition line
+    if cfu_conv is None:
+        cfu_conv = load_cfu_conversion()
+    
     num_species = Cmatrix.shape[0]
 
     num_resources = Cmatrix.shape[1]
