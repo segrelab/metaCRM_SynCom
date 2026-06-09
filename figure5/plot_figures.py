@@ -32,7 +32,6 @@ def plot_epistasis_distribution(epistasis_df: pd.DataFrame) -> plt.Figure:
   sns.histplot(epistasis_df, binwidth = 0.024, x = '$\epsilon$', hue = 'direction', palette = direction_to_color, 
                hue_order = direction_to_color.keys(), multiple = 'stack', alpha = 1, ax = ax1, legend = None, line_kws = { 'linecolor': 'black', 'width': 1 })
   ax1.set_title("Distribution of Epistatic Interaction Values")
-  # ax1.get_legend().set_title('Effect Direction')
   sns.boxplot(epistasis_df, x = '$\epsilon$', y = 'direction', order = direction_to_color.keys(), hue = 'direction', 
               palette = direction_to_color, ax = ax2, saturation = 1, legend = None, linecolor = 'black', linewidth = 1)
   ax2.set_ylabel("")
@@ -44,7 +43,7 @@ def plot_epistasis_legend() -> plt.Figure:
   cbar_ax = legend_fig.add_axes([0.05, 0.44, 0.05, 0.5])
   legend_fig.colorbar(cm.ScalarMappable(hue_norm, palette), cax = cbar_ax, orientation = "vertical")
   cbar_ax.tick_params(labelsize = 12)
-  cbar_ax.set_title(r'$\epsilon$', fontsize = 12)
+  cbar_ax.set_title('$\epsilon$', fontsize = 14)
   cbar_ax.legend([mpl.patches.Patch(facecolor = palette.get_under(), edgecolor = 'black', linewidth = 0.75)], ['0 / 0'], frameon = False, 
                 fontsize = 12,  bbox_to_anchor = [-0.38, -0.03], loc = 'upper left', handlelength = 2.5, handleheight = 1.4)
   
@@ -52,13 +51,27 @@ def plot_epistasis_legend() -> plt.Figure:
     direction: mpl.patches.Patch(facecolor = color, edgecolor = 'black', linewidth = 0.75) for direction, color in direction_to_color.items()
   }
   legend_fig.legend(direction_label_to_handle.values(), direction_label_to_handle.keys(), title = 'Leaveout Effect', alignment = 'left', frameon = False,
-                  fontsize = 12, title_fontsize = 12, bbox_to_anchor = [0.22, 0.98], loc = 'upper left', handlelength = 2.5, handleheight = 1.4, handletextpad = 1.2)
+                   fontsize = 12, title_fontsize = 14, bbox_to_anchor = [0.22, 0.98], loc = 'upper left', handlelength = 2.5, handleheight = 1.4, handletextpad = 1.2)
   
   type_label_to_handle = { 
     epi_type: mpl.lines.Line2D([0], [0], marker = marker, markersize = 12, color = 'black', linestyle = 'None') for epi_type, marker in type_to_marker.items()
   }
-  legend_fig.legend(type_label_to_handle.values(), type_label_to_handle.keys(), title = 'Epistasis Type', alignment = 'left', frameon = False,
-                  fontsize = 12, title_fontsize = 12, bbox_to_anchor = [0.22, 0.78], loc = 'upper left', handlelength = 2.5, handleheight = 1.4, handletextpad = 1.2)
+  legend_fig.legend(type_label_to_handle.values(), type_label_to_handle.keys(), title = 'Epistasis Type',  alignment = 'left', frameon = False, 
+                   fontsize = 12, title_fontsize = 14, bbox_to_anchor = [0.22, 0.78], loc = 'upper left', handlelength = 2.5, handleheight = 1.4, handletextpad = 1.2)
+  
+  formula_to_description = {
+    '$W^k_i$': 'fitness of species $k$ in\ncommunity without $i$',
+    '$\epsilon^k_{ij}$': r'$\frac{W^k_{ij}-W^k_{i}*W^k_{j}}{W^k_{ij}+W^k_{i}*W^k_{j}}$',
+  }
+  hori = 0.24
+  vert = 0.54
+  legend_fig.text(hori, vert, "Symbols", fontsize = 14)
+  hori = hori + 0.03
+  vert = vert - 0.06
+  for formula, desc in formula_to_description.items():
+    legend_fig.text(hori, vert, formula, fontsize = 14, va = 'center', ha = 'center')
+    legend_fig.text(hori + 0.05, vert, desc, fontsize = 12, va = 'center')
+    vert = vert - 0.07
   return legend_fig
 
 
