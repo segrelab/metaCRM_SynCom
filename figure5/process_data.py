@@ -62,6 +62,9 @@ def calculate_epistasis(whole_community: pd.DataFrame, leave_one: pd.DataFrame, 
   epistasis_df["direction"] = "deleterious"
   epistasis_df.loc[epistasis_df["$W_{ij}$"] > 1, "direction"] = "beneficial"
   epistasis_df.loc[np.sign(epistasis_df["$W_{ij}$"] - 1) != np.sign(epistasis_df["$W_i*W_j$"] - 1), "direction"] = "reciprocal"
+  epistasis_df["type"] = "buffering"
+  epistasis_df.loc[(epistasis_df["direction"] == 'beneficial') == (epistasis_df["$\epsilon$"] > 0), "type"] = "synergistic"
+  epistasis_df.loc[(epistasis_df["$W_{ij}$"] + epistasis_df["$W_i*W_j$"]) == 0.0, "type"] = "complete lethality"
 
   return epistasis_df
 
