@@ -620,24 +620,29 @@ def load_exp_loo_effects(path_to_epistasis_vals):
     
     return loo_exp_vals
 
-def plot_interaction_matrix(interaction_df, title, outfile=None):
-    plt.figure(figsize=(8,6))
-    sns.heatmap(interaction_df, cmap='RdBu_r')
-    plt.title(title)
-    plt.ylabel("Species i")
-    plt.xlabel("Species j")
+def plot_interaction_matrix(interaction_df, title, sps=utils.sps_names, outfile=None):
+    #reindex to full species list, missing values become NaN
+    df = interaction_df.reindex(index=sps, columns=sps).sort_index(axis=0).sort_index(axis=1)
+    
+    fig, ax = plt.subplots(figsize=(8,6))
+    ax.set_facecolor('#d3d3d3')  # grey background shows through NaN cells
+    sns.heatmap(df, cmap='RdBu_r', center=0, vmax=1, vmin=-1,ax=ax)
+    
+    ax.set_title(title)
+    ax.set_ylabel("Species i")
+    ax.set_xlabel("Species j")
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
     plt.show()
-    return
 
 def plot_interaction_compare(co_culture_int_df, loo_interaction_df, outfile=None):
     #plot correlation between the two interaction metrics
+
     plt.figure(figsize=(6,6))
     colormap = utils.get_species_colormap()
 
-    species = loo_interaction_df.columns
+    species = sorted(loo_interaction_df.columns)
     for sp_j in species:
         for sp_i in species:
             if sp_i == sp_j:

@@ -439,12 +439,12 @@ def calc_coculture_interactions(coculture_data):
                 continue
             ij_expts = match_ij(df, i, j)
             if not ij_expts.empty and self_growth[i] is not np.nan:
-                mean_effect = np.mean(ij_expts['final_od'] * ij_expts[i])
-                if (mean_effect + self_growth[i]) == 0:
+                median_effect = np.median(ij_expts['final_od'] * ij_expts[i])
+                if (median_effect + self_growth[i]) == 0:
                     interaction = np.nan
                 else:
                     #interaction metric!
-                    interaction = (mean_effect - self_growth[i]) / (mean_effect + self_growth[i])
+                    interaction = (median_effect - self_growth[i]) / (median_effect + self_growth[i])
                 interaction_matrix.loc[sp_key[i], sp_key[j]] = interaction
 
     #prepare df for saving with informative columns, index labels
@@ -499,7 +499,7 @@ def calc_loo_interactions(whole_community_abun, loo_abun):
         #rows where that species is left out
         row_number = species_code_to_row[species_j]  
         mask = leave_one_out['-1'].astype(str) == row_number
-        loo_avg = leave_one_out_rel[mask].mean()
+        loo_avg = (leave_one_out_rel[mask]).mean()
 
         #get the whole community profile and renormalize with that species artificially removed
         wc_without = whole_p5_avg.drop(f"{list(col_to_species.keys())[species_ids.index(species_j)]}")
