@@ -4,7 +4,7 @@ This repository accompanies the manuscript:
 **“Metabolic blueprints of monocultures enable prediction and design of synthetic microbial consortia”**  
 https://doi.org/10.64898/2026.01.11.698878
 
-It contains all raw and processed data, model parameters, and code required to reproduce the simulations and figures presented in the manuscript.
+It contains all experimental data, model parameters, and code required to reproduce the simulations and figures presented in the manuscript.
 
 ## Abstract
 Synthetic microbial ecology aims at designing communities with desired properties based on mathematical models of individual organisms. It is unclear whether simplified models harbor enough detail to predict the composition of synthetic communities in metabolically complex environments. Here, we use longitudinal exometabolite data of monocultures for 15 rhizosphere bacteria to parametrize a consumer-resource model, which we use to predict pairwise co-cultures and higher order communities. The capacity to artificially “switch off” cross-feeding interactions in the model demonstrates their importance in ecosystem structure. Leave-one-out and leave-two-out experiments display that pairwise co-cultures do not necessarily capture inter-species interactions within larger communities and broadly highlight the nonlinearity of interactions. Finally, we illustrate that our model can be used to identify new sub-communities of three strains with high likelihood of coexistence. Our results establish hybrid mechanistic and data-driven metabolic models as a promising and extendable framework for predicting and engineering microbial communities.
