@@ -625,6 +625,109 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
 
     return
 
+def plot_g_compare(g_init, g_fit, outfile=None):
+    """
+    Compare g derived from fitting vs. analytical methods.
+    Includes a broken x-axis to accommodate outliers at ~26.4 and ~31.7.
+    """
+    sps = utils.sps
+    palette = utils.get_species_colormap(name_key=False)
+
+    fig, (ax_left, ax_right) = plt.subplots(
+        1, 2, sharey=True, figsize=(4, 4),
+        gridspec_kw={'width_ratios': [3, 1], 'wspace': 0.08}
+    )
+
+    ax_left.set_xlim(0, 4.5)
+    ax_right.set_xlim(24, 33)  #adjust padding around 26.4 / 31.7 as needed
+
+    #no break on y
+    ax_left.set_ylim(0, 4.5)
+
+    for i in range(g_init.shape[0]):
+        x = g_init.iloc[i]
+        y = g_fit.iloc[i]
+        for ax in (ax_left, ax_right):
+            ax.scatter(
+                x, y,
+                label=utils.get_species_name(sps[i]) if ax is ax_left else None,
+                facecolors='none', edgecolors=palette[sps[i]],
+                s=70, linewidths=1.6
+            )
+
+    min_val = min(g_init.min(), g_fit.min())
+    max_val = max(g_init.max(), g_fit.max())
+    for ax in (ax_left, ax_right):
+        ax.plot([min_val, max_val], [min_val, max_val],
+                color='grey', linestyle='--', linewidth=1)
+
+    ax_left.spines['right'].set_visible(False)
+    ax_right.spines['left'].set_visible(False)
+    ax_right.tick_params(labelleft=False, left=False)
+
+    d = 0.015  #diagonal break marks
+    kwargs = dict(transform=ax_left.transAxes, color='k', clip_on=False, linewidth=1)
+    ax_left.plot((1 - d, 1 + d), (-d * 3, +d * 3), **kwargs)
+    ax_left.plot((1 - d, 1 + d), (1 - d * 3, 1 + d * 3), **kwargs)
+
+    kwargs.update(transform=ax_right.transAxes)
+    ax_right.plot((-d * 3, +d * 3), (-d * 3, +d * 3), **kwargs)
+    ax_right.plot((-d * 3, +d * 3), (1 - d * 3, 1 + d * 3), **kwargs)
+
+    fig.text(0.5, 0.02, r'$g_{i}$ derived from analytical method (1/energy)',
+              ha='center')
+    ax_left.set_ylabel(r'$g_{i}$ fitted from simulated annealing (1/energy)')
+
+    handles, labels = ax_left.get_legend_handles_labels()
+    line = plt.Line2D([0], [0], color='grey', linestyle='--', linewidth=1, label='1:1')
+    handles.append(line)
+    ax_left.legend(handles=handles, loc='center right',
+                   bbox_to_anchor=(2.15, 0.5), fontsize=9)
+
+    plt.tight_layout()
+    if outfile:
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+    plt.show()
+    return
+
+def plot_D_compare(D1, D2, outfile=None):
+    """
+    Compare D1 and D2 derived from fitting vs. analytical methods.
+    """
+    sps = utils.sps
+    fig = plt.figure(figsize=(7.5, 4.5))
+    x, y = [], []
+    palette = utils.get_species_colormap(name_key=False)
+    ax = fig.add_subplot(111)
+
+    D1 = D1.copy()
+    D2 = D2.copy()
+    D1['species'] = D1['species'].astype(str)
+    D2['species'] = D2['species'].astype(str)
+
+    for i in D2['species'].unique():
+        init = D2[D2['species'] == i].drop(columns='species')
+        row_sums = init.sum(axis=1)
+        normalized_D2 = init.div(row_sums, axis=0).where(row_sums != 0, 0)
+        x = normalized_D2.values.flatten()
+
+        d1_sub = D1[D1['species'] == i].drop(columns='species')
+        y = d1_sub.T.values.flatten()
+
+        ax.scatter(x, y, label=utils.get_species_name(i), fc='none', ec=palette[i])
+    ax.plot([0, 1], [0, 1], color='grey', linestyle='--', linewidth=1, label="1:1")
+
+    ax.set_xlabel(r'${D^i}_{\alpha\beta}$ derived from analytical method')
+    ax.set_ylabel(r'${D^i}_{\alpha\beta}$ fitted from simulated annealing')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9)
+    plt.tight_layout()
+    if outfile:
+        plt.savefig(outfile, dpi=300)
+    plt.show()
+    return
+
 
 if __name__ == "__main__": 
     parser = ArgumentParser(description="Generate all figures from CSV data.")
@@ -645,19 +748,24 @@ if __name__ == "__main__":
     fit_sp_mono = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_sp_df.csv"), index_col=0)
     growth_df_clean = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/growth_df_clean.csv"))
     glist_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/glist_fitted.csv"))
+    glist_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/glist_init.csv"))
     l_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/l_fitted.csv"),)
     gparam_df = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/gparam_df.csv"))
     fit_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_met_df.csv"))
     init_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/init_mono_met_df.csv"))
+    d_dict_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/d_dict_init.csv"))
+    d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
-    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
-    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
-    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
-    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
-    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
-    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
-    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
-    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
-    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
+    #plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
+    #col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
+    #plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
+    #plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
+    #plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
+    #plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
+    #plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
+    #plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
+    #plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
+    #plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
+    plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
+    plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
