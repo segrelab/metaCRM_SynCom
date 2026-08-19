@@ -466,49 +466,78 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     return
 
 def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
-    """
-    Plot final growth abundance from simulating CRm monoculture growth with initial and fitted 
-    parameter estimated, compare to observed experimental final growth yields.
-    """
-    
-    #assume constant OD to cfu conversion for all strains
     cfu_conv = 10**9
-
-    #load experimental monoculture data
+    
+    # load experimental monoculture data
     od_final = exp_abundance.iloc[-1]
     exp_cfu_final = cfu_conv * od_final
-    init_cfu_final = init_sp_x.loc[50]
-    fitted_cfu_final = fit_sp_x.loc[50]  
+    init_cfu_final = init_sp_x.loc[50.00]
+    fitted_cfu_final = fit_sp_x.loc[50.00]
 
-    #calculate pearson correlation
+    # calculate pearson correlation
     i_r, i_p = scipy.stats.pearsonr(exp_cfu_final.values.astype('float'), init_cfu_final.values.astype('float'))
     f_r, f_p = scipy.stats.pearsonr(exp_cfu_final.values.astype('float'), fitted_cfu_final.values.astype('float'))
 
-    fig, axes = plt.subplots(2, 1, figsize=(4.5, 7.5), sharex=True)
     palette = utils.get_species_colormap()
 
+    fig = plt.figure(figsize=(5, 8))
+    # top gridspec: just the broken pair, tight together
+    gs_top = gridspec.GridSpec(2, 1, height_ratios=[1, 2], hspace=0.08,
+                   top=0.95, bottom=0.55)
+    # bottom gridspec: the single optimized-parameters plot
+    gs_bot = gridspec.GridSpec(1, 1, top=0.45, bottom=0.08)
+
+    ax0_top = fig.add_subplot(gs_top[0])
+    ax0_bot = fig.add_subplot(gs_top[1], sharex=ax0_top)
+    ax1 = fig.add_subplot(gs_bot[0])
+
     for idx, val in enumerate(init_cfu_final):
-        axes[0].scatter(exp_cfu_final.values[idx]/10**9, val/10**9, color='royalblue')
-    axes[0].axline((0, 0), slope=1, c='grey', ls='--')
-    axes[0].set_title('Initial Model Parameters', fontsize=12)
-    axes[0].text(0.05, 1.8, f'r = {i_r:.2f}\np = {i_p:.2f}', 
-             transform=axes[1].transAxes, fontsize=11)
+        ax0_top.scatter(exp_cfu_final.values[idx]/10**9, val/10**9, color='royalblue')
+        ax0_bot.scatter(exp_cfu_final.values[idx]/10**9, val/10**9, color='royalblue')
 
+    for ax in (ax0_top, ax0_bot):
+        ax.axline((0, 0), slope=1, c='grey', ls='--')
+
+    # set axes breaks
+    ax0_top.set_ylim(40, 45)   #outlier range  
+    ax0_bot.set_ylim(0, 10)    #main cluster 
+    ax0_top.spines['bottom'].set_visible(False)
+    ax0_bot.spines['top'].set_visible(False)
+    ax0_top.tick_params(labelbottom=False, bottom=False)  
+    ax0_top.tick_params(labeltop=False)
+
+    # add diagonal break marks 
+    d = 0.5  
+    kwargs = dict(marker=[(-1, -d), (1, d)], markersize=12,
+                  linestyle="none", color='k', mec='k', mew=1, clip_on=False)
+    ax0_top.plot([0], [0], transform=ax0_top.transAxes, **kwargs)
+    ax0_top.plot([1], [0], transform=ax0_top.transAxes, **kwargs)
+    ax0_bot.plot([0], [1], transform=ax0_bot.transAxes, **kwargs)
+    ax0_bot.plot([1], [1], transform=ax0_bot.transAxes, **kwargs)
+
+    # top subplot text and labels
+    ax0_top.set_title('Initial Model Parameters', fontsize=12)
+    ax0_bot.text(0.05, 0.75, f'r = {i_r:.2f}\np = {i_p:.2f}',
+                 transform=ax0_bot.transAxes, fontsize=11)
+
+    # Bottom subplot, optimized parameters
     for idx, val in enumerate(fitted_cfu_final):
-        axes[1].scatter(exp_cfu_final.values[idx]/10**9, val/10**9, label=utils.get_species_name(fitted_cfu_final.index.to_list()[idx]), color='royalblue')
-    axes[1].axline((0, 0), slope=1, c='grey', ls='--')
-    axes[1].set_xlabel('Measured Population Abundance ($10^9$ cfu/mL)', fontsize=11)
-    axes[1].set_title('Optimized Model Parameters', fontsize=12)
-    axes[1].set_ylim(0,1.6)
-    axes[1].text(0.05, 0.75, f'r = {f_r:.2f}\np = {f_p:.2e}', 
-             transform=axes[1].transAxes, fontsize=11)
+        ax1.scatter(exp_cfu_final.values[idx]/10**9, val/10**9,
+                    label=utils.get_species_name(fitted_cfu_final.index.to_list()[idx]),
+                    color='royalblue')
+    ax1.axline((0, 0), slope=1, c='grey', ls='--')
+    ax1.set_xlabel('Measured Population Abundance ($10^9$ cfu/mL)', fontsize=12)
+    ax1.set_title('Optimized Model Parameters', fontsize=12)
+    ax1.set_ylim(0, 1.6)
+    ax1.text(0.05, 0.75, f'r = {f_r:.2f}\np = {f_p:.2e}',
+             transform=ax1.transAxes, fontsize=11)
 
-    fig.text(-0.02, 0.5, 'Predicted Population Abundance ($10^9$ cfu/mL)', va='center', rotation='vertical', fontsize=11)
+    fig.text(-0.02, 0.5, 'Predicted Population Abundance ($10^9$ cfu/mL)',
+             va='center', rotation='vertical', fontsize=12)
+
     plt.tight_layout()
-
     if outfile:
-        plt.savefig(outfile, bbox_inches='tight', dpi=500)
-
+        plt.savefig(outfile, bbox_inches='tight', dpi=400)
     return
 
 def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
@@ -757,15 +786,15 @@ if __name__ == "__main__":
     d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    #plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
-    #col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
-    #plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
-    #plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
-    #plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
-    #plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
-    #plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
-    #plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
-    #plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
-    #plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
+    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
+    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
+    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
+    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
+    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
+    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
+    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
+    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
+    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
+    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
     plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
     plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
