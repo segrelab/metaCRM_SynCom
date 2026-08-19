@@ -540,12 +540,13 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
         plt.savefig(outfile, bbox_inches='tight', dpi=400)
     return
 
-def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
+def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None, jitter_amount=0.02, seed=0):
     """
     Plot final metabolite abundance from simulating CRM monoculture growth with fitted params
     compared to observed experimental final timepoint metabolite abundances.
     """
-    
+    rng = np.random.default_rng(seed)
+
     #metabolite classes map to colors
     classes = met_class_df['metabolite_class'].unique()
     class_colors = {
@@ -554,35 +555,27 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
     met_to_class = dict(
         zip(met_class_df['metabolite'], met_class_df['metabolite_class'])
     )
-
     #extract metabolite list
     rep_sp = fit_met_df['species'].unique()[0]
     rep_df = fit_met_df[fit_met_df['species'] == rep_sp]
     metabolite_cols = [
         c for c in rep_df.columns if c not in ['species', 'time']
     ]
-
     #assign colors for each metabolite
     colors = [
         class_colors.get(met_to_class.get(met, "Unknown"), "gray")
         for met in metabolite_cols
     ]
-
-
     fig, axes = plt.subplots(nrows=3, ncols=5, figsize=(15, 9), sharex=True, sharey=True)
     plt.subplots_adjust(wspace=0.1, hspace=0.3)
     axes = axes.flatten()
-
     #loop over species, one species per subplot
     for sp_i, sp_code in enumerate(utils.sps):
         ax = axes[sp_i]
-
         #convert species code to species name
         sp_name = utils.get_species_name(sp_code)
-
         #extract final timepoint per species
         exo_df = metab_time_df[metab_time_df['species'] == sp_name]
-
         #find final experimental exometabolomics timepoint
         final_time_exp = exo_df['time'].max()
         exo_last = exo_df[exo_df['time'] == final_time_exp]
@@ -590,7 +583,6 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
         exo_usage = np.array([
             exo_usage_map.get(m, np.nan) for m in metabolite_cols
         ], dtype=float)
-
         #subset simulated metabolite data by species 
         sim_df = fit_met_df[fit_met_df['species'] == int(sp_code)].copy()
         
@@ -598,60 +590,58 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None):
             ax.set_title(f"{sp_name} (no sim data)")
             print('sim_df is empty')
             continue
-
         sim_df['time'] = sim_df['time'].astype(float)
-
         #find equivalent final timepoint in simulated data
         final_row = sim_df.loc[
             np.isclose(sim_df['time'], final_time_exp, atol=1e-6),
             metabolite_cols
         ]
-
         #simulated abundance at the start of the simulation
         init_row = sim_df.loc[
             np.isclose(sim_df['time'], 0.0, atol=1e-6),
             metabolite_cols
         ]
-
         end_resource_abundance = final_row.values.flatten().astype(float)
         init_resource_abundance = init_row.values.flatten().astype(float)
-
         #normalize the simulated final abundance by the initial, same normalization done in experiments with blank media
         with np.errstate(divide='ignore', invalid='ignore'):
             sim_usage = (end_resource_abundance - init_resource_abundance) / init_resource_abundance
 
+        #add small jitter to help separate overlapping points
+        mask_valid = ~np.isnan(sim_usage) & ~np.isnan(exo_usage)
+        sim_usage_jittered = sim_usage.copy()
+        exo_usage_jittered = exo_usage.copy()
+        sim_usage_jittered[mask_valid] += rng.uniform(
+            -jitter_amount, jitter_amount, size=mask_valid.sum()
+        )
+        exo_usage_jittered[mask_valid] += rng.uniform(
+            -jitter_amount, jitter_amount, size=mask_valid.sum()
+        )
+
         #plot simulated vs. measured usage
-        ax.scatter(sim_usage, exo_usage,
-                   color=colors, linewidth=1.5, s=60, alpha=0.5)
-
+        ax.scatter(sim_usage_jittered, exo_usage_jittered,
+                   color=colors, linewidth=0.5, edgecolor='none', s=45, alpha=0.65)
         ax.set_title(sp_name, fontsize=15)
-
-        #pearson correlation
-        mask = ~np.isnan(sim_usage) & ~np.isnan(exo_usage)
+        #pearson correlation - use UNJITTERED values for the actual stat
+        mask = mask_valid
         if np.sum(mask) > 1:
             r_val, p_val = scipy.stats.pearsonr(sim_usage[mask], exo_usage[mask])
             corr_text = f"r = {r_val:.2f}"
         else:
             corr_text = "r = --"
-
         ax.text(0.95, 0.05, corr_text,
                 ha='right', va='bottom',
                 transform=ax.transAxes, fontsize=14)
-
         #axes formatting
         ax.set_xlim(-1.1, 1.1)
         ax.set_ylim(-1.1, 1.1)
         ax.axhline(y=0, c='grey', linewidth=0.6)
         ax.axvline(x=0, c='grey', linewidth=0.6)
-
-
     fig.text(0.5, 0.04, 'Simulated Metabolite Usage', ha='center', fontsize=18)
     fig.text(0.07, 0.5, 'Measured Metabolite Usage', va='center',
              rotation='vertical', fontsize=18)
-
     if outfile:
-        plt.savefig(outfile, dpi=600)
-
+        plt.savefig(outfile, dpi=400)
     return
 
 def plot_g_compare(g_init, g_fit, outfile=None):
@@ -786,15 +776,15 @@ if __name__ == "__main__":
     d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
-    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
-    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
-    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
-    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
-    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
-    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
-    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
+    #plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
+    #col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
+    #plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
+    #plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
+    #plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
+    #plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
+    #plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
+    #plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
     plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
-    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
-    plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
-    plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
+    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
+    #plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
+    #plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
