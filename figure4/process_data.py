@@ -10,6 +10,10 @@ import numpy as np
 sys.path.append(".")
 import utils
 
+################################################
+###     Functions that require SCC paths     ###
+###  clean, usable versions saved on github  ###
+################################################
 
 def load_OTU_table(inputfile):
     """ load processed OTU table """
@@ -128,142 +132,6 @@ def load_experiment_2_df(path):
 
     return df_final, df
 
-def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t0_abun=True, no_arth=False):
-    """
-    Simulate the whole community experiment.
-    Returns two long-form DataFrames: sp_abun_long and met_abun_long.
-    Columns: 'passage', 'species'/'metabolite', 'value'
-    """
-    
-    t = time
-    w = 10**12
-    Cmatrix, D_dict, l, glist, cfu = utils.load_fitted_params()
-    if crossfeeding == False:
-        l = pd.DataFrame(0.0, index=l.index, columns=l.columns)
-
-    # initial metabolite concentrations
-    init_met_conc = utils.load_met_conc()
-    init_met_conc.index.name = None
-    init_met_conc.rename(columns={"Concentration (g/mL)": "x0"}, inplace=True)
-
-    # initial species abundance
-    init_sp_abun = pd.Series([10**9 * 0.01] * len(glist), index=utils.sps, name='x0')
-    if t0_abun:
-        init_abuns = [0.019849146, 0.093290988, 0.038507344, 0.30567686,
-                      0.132195316, 0.132195316, 0.083366415, 0.003572846, 
-                      0.001587932, 0.010718539, 0.026200873, 0.0, 0.0, 0, 0.138547042]
-        init_sp_abun = pd.Series([(i + 0.00005) * 10**9 for i in init_abuns], index=utils.sps, name='x0')
-    if no_arth:
-        init_sp_abun.loc['1331'] = 0.0
-
-    # helper function to convert wide DF to long form
-    def to_long(df, passage):
-        df_long = df.reset_index().melt(id_vars="index", var_name="species", value_name="value")
-        df_long = df_long.rename(columns={"index": "time"})
-        df_long["passage"] = passage
-        return df_long
-
-    sp_long_dfs = []
-    met_long_dfs = []
-
-    # first passage
-    x0_combined = pd.concat([init_sp_abun, init_met_conc])
-    params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
-    sp_x, met_x = utils.run_mcrm(params, old=old)
-    sp_long_dfs.append(to_long(sp_x, 1))
-    met_long_dfs.append(to_long(met_x, 1))
-
-    # subsequent passages
-    for tf in range(tfs):
-        x_s = pd.Series(sp_x.loc[47.99] * 0.02, index=utils.sps, name='x0')
-        x0_combined = pd.concat([x_s, init_met_conc])
-        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
-        sp_x, met_x = utils.run_mcrm(params, old=old)
-        sp_long_dfs.append(to_long(sp_x, tf + 2))
-        met_long_dfs.append(to_long(met_x, tf + 2))
-
-    # concatenate all passages
-    sp_abun_long = pd.concat(sp_long_dfs, ignore_index=True)
-    met_abun_long = pd.concat(met_long_dfs, ignore_index=True)
-
-    # clean up species abundance to sum to 1 and have t value per passage
-    sp_abun_long = (sp_abun_long[sp_abun_long['time'] == 47.99]
-            .pivot(index='passage', columns='species', values='value')
-            .pipe(lambda d: d.div(d.sum(axis=1), axis=0)))
-
-    return sp_abun_long, met_abun_long
-
-
-def simulate_leave_one_out_exp(tfs=4, time=48, crossfeeding=True, old=False):
-    '''
-    Perform Leave-one-out simulations with all 15 strains. Save in final dataframe with index for species_left_out.
-    '''
-
-    t=time
-    w=10**12
-
-    #save results
-    sp_abun = {}
-    met_abun = {}
-    
-    #LEAVE-ONE-OUT    
-    for sp in utils.sps:
-        Cmatrix, D_dict, l, glist, cfu = utils.load_fitted_params()
-        if crossfeeding==False:
-            l = pd.DataFrame(0.0, index=l.index, columns=l.columns)
-
-        #set initial metabolite concentrations
-        init_met_conc = utils.load_met_conc()
-        init_met_conc.index.name = None
-        init_met_conc.rename(columns={"Concentration (g/mL)": "x0"}, inplace=True)
-
-        #set initial species abundance
-        init_sp_abun = pd.Series([10**9 * 0.01] * len(glist), index=utils.sps, name='x0')
-
-        #combine into the initial conditions vector
-        x0_combined = pd.concat([init_sp_abun, init_met_conc])
-    
-        for df in [x0_combined, Cmatrix, l, glist, cfu]:
-            df.drop(sp, inplace=True)
-        D_dict.pop(sp, None)
-
-        #set up and run
-        sp_abun[sp] = {}
-        met_abun[sp] = {}
-        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
-        sp_x, met_x = utils.run_mcrm(params, old=old)
-        sp_abun[sp]['1'] = sp_x
-        met_abun[sp]['1'] = met_x
-
-        for tf in range(tfs):
-            x_s = pd.Series(sp_x.loc[47.99]*0.02, index=utils.sps, name='x0')
-            x0_combined = pd.concat([x_s, init_met_conc])
-            x0_combined.drop(sp, inplace=True)
-            params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
-            sp_x, met_x = utils.run_mcrm(params, old=old)
-            sp_abun[sp][str(tf+2)] = sp_x
-            met_abun[sp][str(tf+2)] = met_x
-
-    #transform sp_abun into a df with the final loo abundances
-    sp_abun = {s: time_dict['5'] for s, time_dict in sp_abun.items() if '5' in time_dict}
-    rows = []
-    for s, df in sp_abun.items():
-        # Get the last row
-        last_row = df.iloc[-1]
-        last_row_df = pd.DataFrame(last_row).T
-        last_row_df.index = [df.index[-1]]
-        # Add a column for species_left_out
-        last_row_df['species_left_out'] = s
-        rows.append(last_row_df)
-    #concatenate rows, set index
-    result_df = pd.concat(rows)
-    result_df.set_index('species_left_out', inplace=True)
-    result_df = result_df.fillna(0)
-    result_df = result_df.div(result_df.sum(axis=1), axis=0)
-
-    return result_df, met_abun
-
-
 def process_leave_out_experiment(loo_data):
     
     loo_data = pd.read_table(loo_data, index_col=0)
@@ -311,39 +179,6 @@ def process_leave_out_experiment(loo_data):
     exp_loo_df = final_df.fillna(0)
 
     return exp_loo_df
-
-def get_rescaled_abun(whole, row):
-    '''
-    Artificuially leave out one species from the whole community dataframe, used for normalizing LOO data.
-    '''
-    dropped = whole.drop(row['i'], errors='ignore')
-    rescaled = dropped / dropped.sum()
-    val = rescaled.get(row['sp'])
-    return float(val) if val is not None else float('nan')
-
-def calc_sim_loo_effects(sim_loo_df, whole_comm_sim_df):
-    '''
-    Calculate W_i effect on species j when i is left out. Use whole community data to 
-    normalize, part of the process of calculating episttasis effects.
-    '''
-
-    loo_sim_vals = sim_loo_df.melt(ignore_index=False).reset_index()
-    loo_sim_vals.columns = [['i', 'sp', 'abun_sp']]
-    loo_sim_vals[['i', 'sp']] = loo_sim_vals[['i', 'sp']].applymap(utils.get_species_name)
-
-    sim_abun = whole_comm_sim_df.loc[5]
-    sim_abun.index = [utils.get_species_name(sp) for sp in sim_abun.index]
-    sim_abun.astype(float)
-
-    whole = sim_abun.astype(float)
-
-    loo_sim_vals['sp_abun_in_rescaled_whole'] = loo_sim_vals.apply(lambda row: get_rescaled_abun(whole, row), axis=1)
-    loo_sim_vals.dropna(inplace=True)
-
-    loo_sim_vals['$W_i$'] = loo_sim_vals['abun_sp'].iloc[:, 0] / loo_sim_vals['sp_abun_in_rescaled_whole'].iloc[:, 0]
-    loo_sim_vals.columns = [c[0] if isinstance(c, tuple) else c for c in loo_sim_vals.columns]
-
-    return loo_sim_vals
 
 def calc_coculture_interactions(coculture_data):
     '''
@@ -476,7 +311,6 @@ def calc_loo_interactions(whole_community_abun, loo_abun):
         for i, species_id in enumerate(species_ids)
     }
 
-
     #normalize species abundances to relative abundances
     whole_community_rel = whole_community[species_cols].div(whole_community['Total'], axis=0)
     leave_one_out_rel = leave_one_out[species_cols].div(leave_one_out['Total'], axis=0)
@@ -534,6 +368,195 @@ def calc_loo_interactions(whole_community_abun, loo_abun):
     loo_interactions.dropna(how='all', inplace=True)
 
     return loo_interactions
+
+####################################################
+###        Functions that are usable as is       ###
+###  no additional data needed outside the repo  ###
+####################################################
+
+def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t0_abun=False, no_arth=False):
+    """
+    Simulate the whole community experiment.
+    Returns two long-form DataFrames: sp_abun_long and met_abun_long.
+    Columns: 'passage', 'species'/'metabolite', 'value'
+    """
+
+    #define and load fitted parameters from optimized model
+    t = time
+    w = 10**12
+    cfu=10**9
+    Cmatrix = pd.read_csv('../data/final_crm_params/cmat_fitted.csv', index_col=0)
+    Dmatrix_df = pd.read_csv('../data/final_crm_params/d_dict_fitted.csv')
+    D_dict = {sp: g.drop(columns="species") for sp, g in Dmatrix_df.groupby("species", sort=False)}
+    glist = pd.read_csv('../data/final_crm_params/glist_fitted.csv', index_col=0)
+    l = pd.read_csv('../data/final_crm_params/l_fitted.csv', index_col=0)
+    
+    if crossfeeding == False:
+        l = pd.DataFrame(0.0, index=l.index, columns=l.columns)
+
+    # initial metabolite concentrations
+    init_met_conc = pd.read_csv('../data/met_conc.csv', index_col=0)
+    init_met_conc.index.name = None
+    init_met_conc.rename(columns={"Concentration (g/mL)": "x0"}, inplace=True)
+
+    # initial species abundance
+    init_sp_abun = pd.Series([10**9 * 0.01] * len(glist), index=utils.sps, name='x0')
+    if t0_abun:
+        init_abuns = [0.019849146, 0.093290988, 0.038507344, 0.30567686,
+                      0.132195316, 0.132195316, 0.083366415, 0.003572846, 
+                      0.001587932, 0.010718539, 0.026200873, 0.0, 0.0, 0, 0.138547042]
+        init_sp_abun = pd.Series([(i + 0.00005) * 10**9 for i in init_abuns], index=utils.sps, name='x0')
+    if no_arth:
+        init_sp_abun.loc['1331'] = 0.0
+
+    # helper function to convert wide DF to long form
+    def to_long(df, passage):
+        df_long = df.reset_index().melt(id_vars="index", var_name="species", value_name="value")
+        df_long = df_long.rename(columns={"index": "time"})
+        df_long["passage"] = passage
+        return df_long
+
+    sp_long_dfs = []
+    met_long_dfs = []
+
+    # first passage
+    x0_combined = pd.concat([init_sp_abun, init_met_conc])
+    params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
+    sp_x, met_x = utils.run_mcrm(params, old=old)
+    sp_long_dfs.append(to_long(sp_x, 1))
+    met_long_dfs.append(to_long(met_x, 1))
+
+    # subsequent passages
+    for tf in range(tfs):
+        x_s = pd.Series(sp_x.loc[47.99] * 0.02, index=utils.sps, name='x0')
+        x0_combined = pd.concat([x_s, init_met_conc])
+        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
+        sp_x, met_x = utils.run_mcrm(params, old=old)
+        sp_long_dfs.append(to_long(sp_x, tf + 2))
+        met_long_dfs.append(to_long(met_x, tf + 2))
+
+    # concatenate all passages
+    sp_abun_long = pd.concat(sp_long_dfs, ignore_index=True)
+    met_abun_long = pd.concat(met_long_dfs, ignore_index=True)
+
+    # clean up species abundance to sum to 1 and have t value per passage
+    sp_abun_long = (sp_abun_long[sp_abun_long['time'] == 47.99]
+            .pivot(index='passage', columns='species', values='value')
+            .pipe(lambda d: d.div(d.sum(axis=1), axis=0)))
+
+    return sp_abun_long, met_abun_long
+
+
+def simulate_leave_one_out_exp(tfs=4, time=48, crossfeeding=True, old=False):
+    '''
+    Perform Leave-one-out simulations with all 15 strains. Save in final dataframe with index for species_left_out.
+    '''
+
+    t = time
+    w = 10**12
+    cfu=10**9
+
+    #save results
+    sp_abun = {}
+    met_abun = {}
+    
+    #LEAVE-ONE-OUT    
+    for sp in utils.sps:
+
+        Cmatrix = pd.read_csv('../data/final_crm_params/cmat_fitted.csv', index_col=0)
+        Dmatrix_df = pd.read_csv('../data/final_crm_params/d_dict_fitted.csv')
+        D_dict = {sp: g.drop(columns="species") for sp, g in Dmatrix_df.groupby("species", sort=False)}
+        glist = pd.read_csv('../data/final_crm_params/glist_fitted.csv', index_col=0)
+        l = pd.read_csv('../data/final_crm_params/l_fitted.csv', index_col=0)
+
+        if crossfeeding==False:
+            l = pd.DataFrame(0.0, index=l.index, columns=l.columns)
+
+        #set initial metabolite concentrations
+        init_met_conc = pd.read_csv('../data/met_conc.csv', index_col=0)
+        init_met_conc.index.name = None
+        init_met_conc.rename(columns={"Concentration (g/mL)": "x0"}, inplace=True)
+
+        #set initial species abundance
+        init_sp_abun = pd.Series([10**9 * 0.01] * len(glist), index=utils.sps, name='x0')
+
+        #combine into the initial conditions vector
+        x0_combined = pd.concat([init_sp_abun, init_met_conc])
+    
+        for df in [x0_combined, Cmatrix, l, glist, cfu]:
+            df.drop(sp, inplace=True)
+        D_dict.pop(sp, None)
+
+        #set up and run
+        sp_abun[sp] = {}
+        met_abun[sp] = {}
+        params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
+        sp_x, met_x = utils.run_mcrm(params, old=old)
+        sp_abun[sp]['1'] = sp_x
+        met_abun[sp]['1'] = met_x
+
+        for tf in range(tfs):
+            x_s = pd.Series(sp_x.loc[47.99]*0.02, index=utils.sps, name='x0')
+            x0_combined = pd.concat([x_s, init_met_conc])
+            x0_combined.drop(sp, inplace=True)
+            params = utils.mcrm_params('eye', x0_combined, Cmatrix, D_dict, l, glist, cfu, w, k=0.04, old=old, time=t)
+            sp_x, met_x = utils.run_mcrm(params, old=old)
+            sp_abun[sp][str(tf+2)] = sp_x
+            met_abun[sp][str(tf+2)] = met_x
+
+    #transform sp_abun into a df with the final loo abundances
+    sp_abun = {s: time_dict['5'] for s, time_dict in sp_abun.items() if '5' in time_dict}
+    rows = []
+    for s, df in sp_abun.items():
+        # Get the last row
+        last_row = df.iloc[-1]
+        last_row_df = pd.DataFrame(last_row).T
+        last_row_df.index = [df.index[-1]]
+        # Add a column for species_left_out
+        last_row_df['species_left_out'] = s
+        rows.append(last_row_df)
+    #concatenate rows, set index
+    result_df = pd.concat(rows)
+    result_df.set_index('species_left_out', inplace=True)
+    result_df = result_df.fillna(0)
+    result_df = result_df.div(result_df.sum(axis=1), axis=0)
+
+    return result_df, met_abun
+
+
+def get_rescaled_abun(whole, row):
+    '''
+    Artificuially leave out one species from the whole community dataframe, used for normalizing LOO data.
+    '''
+    dropped = whole.drop(row['i'], errors='ignore')
+    rescaled = dropped / dropped.sum()
+    val = rescaled.get(row['sp'])
+    return float(val) if val is not None else float('nan')
+
+def calc_sim_loo_effects(sim_loo_df, whole_comm_sim_df):
+    '''
+    Calculate W_i effect on species j when i is left out. Use whole community data to 
+    normalize, part of the process of calculating episttasis effects.
+    '''
+
+    loo_sim_vals = sim_loo_df.melt(ignore_index=False).reset_index()
+    loo_sim_vals.columns = [['i', 'sp', 'abun_sp']]
+    loo_sim_vals[['i', 'sp']] = loo_sim_vals[['i', 'sp']].applymap(utils.get_species_name)
+
+    sim_abun = whole_comm_sim_df.loc[5]
+    sim_abun.index = [utils.get_species_name(sp) for sp in sim_abun.index]
+    sim_abun.astype(float)
+
+    whole = sim_abun.astype(float)
+
+    loo_sim_vals['sp_abun_in_rescaled_whole'] = loo_sim_vals.apply(lambda row: get_rescaled_abun(whole, row), axis=1)
+    loo_sim_vals.dropna(inplace=True)
+
+    loo_sim_vals['$W_i$'] = loo_sim_vals['abun_sp'].iloc[:, 0] / loo_sim_vals['sp_abun_in_rescaled_whole'].iloc[:, 0]
+    loo_sim_vals.columns = [c[0] if isinstance(c, tuple) else c for c in loo_sim_vals.columns]
+
+    return loo_sim_vals
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
