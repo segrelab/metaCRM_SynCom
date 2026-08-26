@@ -216,7 +216,7 @@ def compute_pearson_correlations(exp_ratios: pd.DataFrame, sim_ratios_l: pd.Data
 
         pearson_leak = scipy.stats.pearsonr(sim_l, exp)
 
-        species_i_name = utils.get_species_name(sps[i])
+        species_i_name = utils.get_species_name(utils.sps[i])
 
         pearson_df.loc[sp_i, 'leakage off'] = pearson_no_leak[0]
         pearson_df.loc[sp_i, 'leakage on'] = pearson_leak[0]
