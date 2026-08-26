@@ -346,10 +346,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     #convert names to codes
     sp_order_codes = [str(name_to_code[name]) for name in sp_order]
     
-    #load fitted Cmatrix
-    Cmatrix, D_dict, l, glist, cfu = utils.load_fitted_params()
     plot_l = pd.DataFrame(l['sucrose'])
-
     Cmatrix = Cmatrix.loc[sp_order_codes]
     glist = glist.loc[sp_order_codes]
     plot_l = plot_l.loc[sp_order_codes]
@@ -762,13 +759,18 @@ if __name__ == "__main__":
     od_time_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/od_time_df.csv"))
     growth_df_all_timepoints = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/growth_df_all_timepoints.csv"))
     cmat_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/cmat_fitted.csv"), index_col=0)
+    cmat_fitted.index = cmat_fitted.index.astype(str)
     cmat_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/cmat_init.csv"), index_col=0)
+    cmat_init.index = cmat_init.index.astype(str)
     init_sp_mono = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/init_mono_sp_df.csv"), index_col=0)
     fit_sp_mono = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_sp_df.csv"), index_col=0)
     growth_df_clean = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/growth_df_clean.csv"))
-    glist_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/glist_fitted.csv"))
-    glist_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/glist_init.csv"))
-    l_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/l_fitted.csv"),)
+    glist_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/glist_fitted.csv"), index_col=0)
+    glist_fitted.index = glist_fitted.index.astype(str)
+    glist_init = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/glist_init.csv"), index_col=0)
+    glist_init.index = glist_init.index.astype(str)
+    l_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/l_fitted.csv"),index_col=0)
+    l_fitted.index = l_fitted.index.astype(str)
     gparam_df = pd.read_csv(os.path.join(args.data_dir, "init_crm_params/gparam_df.csv"))
     fit_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/fit_mono_met_df.csv"))
     init_met_df = pd.read_csv(os.path.join(args.data_dir, "monoculture_sim/init_mono_met_df.csv"))
@@ -776,15 +778,15 @@ if __name__ == "__main__":
     d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    #plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
-    #col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
-    #plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
-    #plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
-    #plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
-    #plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
-    #plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
-    #plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
+    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
+    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
+    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
+    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
+    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
+    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
+    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
+    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
     plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
     plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
-    #plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
-    #plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
+    plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
+    plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))

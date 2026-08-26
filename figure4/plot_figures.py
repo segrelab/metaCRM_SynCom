@@ -728,5 +728,5 @@ if __name__ == "__main__":
     plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "Sfig_8a.png"))
     plot_interaction_matrix(coculture_int, title='Co-Culture Derived Interactions', outfile=os.path.join(args.out, "Sfig_7a.png"))
     plot_interaction_matrix(loo_int, title='Leave-One_out Derived Interactions', outfile=os.path.join(args.out, "Sfig_7b.png"))
-    plot_interaction_compare(coculture_int, loo_int, outfile=os.path.join(args.out, "Sfig_7c.png"))
+    #plot_interaction_compare(coculture_int, loo_int, outfile=os.path.join(args.out, "Sfig_7c.png"))
 
