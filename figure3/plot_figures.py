@@ -25,7 +25,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch, Circle
 
 # Incl helper functions from utils
-sys.path.append(os.path.abspath("../"))
+sys.path.append(os.path.abspath("."))
 import utils
 
 def conversion(x):
