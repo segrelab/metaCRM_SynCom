@@ -744,6 +744,64 @@ def plot_D_compare(D1, D2, outfile=None):
     plt.show()
     return
 
+def plot_metabolite_usage_distribution(met_class_df, met_time_df, outfile=None):
+    """
+    Distribution of metabolite usage across strains at the last timepoint.
+    Rows = metabolites (ordered/colored by class), x = usage across species.
+    """
+    #same data as Mfig_2a: last timepoint per species/metabolite
+    last_tp_df = met_time_df[met_time_df['time'].notna()].copy()
+    last_tp_df = last_tp_df.groupby(['species', 'metabolite', 'metabolite_class']).median_usage.last().reset_index()
+    last_tp_df = last_tp_df[last_tp_df.metabolite != 'spermidine']
+
+    #order metabolites by class, same as Mfig_2a
+    class_order = ["Sugar", "Organic_Acid", "Amino_Acid", "Nucleobase", "Others"]
+    mets_present = set(last_tp_df.metabolite)
+    class_mets = {cls: [m for m in met_class_df.loc[met_class_df.metabolite_class == cls, "metabolite"]
+                        if m in mets_present] for cls in class_order}
+    row_order = [m for cls in class_order for m in class_mets[cls]]
+
+    #one color per metabolite class
+    palette = sns.color_palette("husl", n_colors=len(class_order))
+    class_colors = dict(zip(class_order, palette))
+    met_colors = {m: class_colors[cls] for cls in class_order for m in class_mets[cls]}
+
+    fig, ax = plt.subplots(figsize=(6.5, 0.26 * len(row_order)))
+    sns.boxplot(data=last_tp_df, x='median_usage', y='metabolite', order=row_order,
+                hue='metabolite', palette=met_colors, legend=False, dodge=False,
+                showfliers=False, linewidth=0.7, width=0.75, ax=ax)
+    sns.stripplot(data=last_tp_df, x='median_usage', y='metabolite', order=row_order,
+                  color='0.2', size=2, alpha=0.55, jitter=0.22, ax=ax)
+    ax.axvline(0, color='black', linestyle='--', linewidth=0.8, zorder=0)
+
+    #symlog x so a few large production values don't squash the rest
+    ax.set_xscale('symlog', linthresh=1, linscale=1.5)
+    ax.set_xticks([-1, -0.5, 0, 0.5, 1, 2, 5])
+    ax.set_xticklabels(['-1', '-0.5', '0', '0.5', '1', '2', '5'])
+    ax.set_xlim(-1.3, 8)
+
+    #shade class blocks and label them on the right
+    start = 0
+    for cls in class_order:
+        n = len(class_mets[cls])
+        if n == 0:
+            continue
+        ax.axhspan(start - 0.5, start + n - 0.5, color=class_colors[cls], alpha=0.08, zorder=0)
+        ax.text(1.015, start + n / 2 - 0.5, cls.replace('_', ' '), transform=ax.get_yaxis_transform(),
+                rotation=270, va='center', ha='left', fontsize=9)
+        start += n
+
+    ax.set_ylim(len(row_order) - 0.5, -0.5)
+    ax.set_xlabel('Metabolite Usage')
+    ax.set_ylabel('')
+    ax.tick_params(axis='y', labelsize=7.5)
+    ax.set_title('Metabolite Usage Across Strains', fontsize=13)
+    sns.despine(ax=ax)
+
+    if outfile:
+        plt.savefig(outfile, dpi=500, bbox_inches='tight')
+    return
+
 
 if __name__ == "__main__": 
     parser = ArgumentParser(description="Generate all figures from CSV data.")
@@ -790,3 +848,4 @@ if __name__ == "__main__":
     plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
     plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
     plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
+    plot_metabolite_usage_distribution(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "metabolite_usage_distribution.png"))
