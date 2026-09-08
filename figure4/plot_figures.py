@@ -478,14 +478,14 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
 
     plt.xticks(rotation=40, fontsize=14)
     plt.yticks(fontsize=12)
-    plt.xlabel("")
+    plt.xlabel("Affected Strain", fontsize=16)
     plt.ylabel("Leave-out Log Abundance", fontsize=16)
     plt.title("Leave-One-Out Abundances: Experiment vs Simulation", fontsize=18)
 
     plt.tight_layout()
 
     if outfile:
-        plt.savefig(outfile, dpi=600)
+        plt.savefig(outfile, dpi=500)
 
     plt.show()
 
