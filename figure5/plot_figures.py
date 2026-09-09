@@ -138,17 +138,18 @@ def plot_leaveout_fitness_comparison(epistasis_df: pd.DataFrame, k: str) -> plt.
 
 
 def plot_all_pairwise_epistasis(epistasis_df: pd.DataFrame) -> plt.Figure:
-  """Supplemental Figure 11"""
+  """Supplemental Figure 12"""
   epistasis_zero_df = epistasis_df.copy()
   k_sps = epistasis_zero_df.index.get_level_values('k').unique()
 
   # Encode zero vals
   epistasis_zero_df.loc[epistasis_zero_df[["$W_{ij}$", "$W_i*W_j$"]].abs().sum(axis = 1) == 0.0, "$\epsilon$"] = -1.5
   grid = sns.catplot(epistasis_zero_df, kind = 'strip', x = 'j', y = 'i', hue = '$\epsilon$', col = 'k', hue_norm = hue_norm, palette = palette,
-                    jitter = False, edgecolor = 'black', marker = 's', linewidth = 0, size = 0, col_wrap = 5, col_order = sorted(k_sps), legend = None)
-  grid.tick_params(axis = "x", rotation = 90)
-  grid.set_titles("Epistatic interaction effects on {col_name}")
-  grid.set_axis_labels("Leave-out species j", "Leave-out species i")
+                    jitter = False, edgecolor = 'black', marker = 's', linewidth = 0, size = 0, col_wrap = 4, col_order = sorted(k_sps), legend = None)
+  grid.tick_params(axis = "x", rotation = 90, labelsize = 16)
+  grid.tick_params(axis = "y", labelsize = 16)
+  grid.set_titles("Epistasis acting on {col_name}", size = 16)
+  grid.set_axis_labels("Leave-out species j", "Leave-out species i", fontsize = 16)
   epistasis_df['0 growth'] = epistasis_zero_df['$\epsilon$'] == -1.5
   # Add histplot to lower left
   for ax, k in zip(grid.axes, grid.col_names):
@@ -166,8 +167,7 @@ def plot_all_pairwise_epistasis(epistasis_df: pd.DataFrame) -> plt.Figure:
     subax.spines['top'].set_visible(False)
     subax.spines['right'].set_visible(False)
 
-  grid.tight_layout()
-  grid.figure.set_size_inches(26, 12)
+  grid.figure.set_size_inches(20, 15)
 
   return grid.figure
 
@@ -207,6 +207,6 @@ if __name__ == '__main__':
   fig5legend.savefig(f'{outf}/Fig5legend.pdf', **fig_props)
   plt.close(fig5legend)
 
-  figS11 = plot_all_pairwise_epistasis(epistasis_df)
-  figS11.savefig(f'{outf}/FigS11.pdf')
-  plt.close(figS11)
+  figS12 = plot_all_pairwise_epistasis(epistasis_df)
+  figS12.savefig(f'{outf}/FigS12.pdf', bbox_inches='tight')
+  plt.close(figS12)
