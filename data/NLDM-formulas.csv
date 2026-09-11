@@ -1,0 +1,65 @@
+﻿Name,CAS,Class,Formula,Concentration (uM)
+Sucrose,57-50-1,"sugar, dihexose",C12H22O11,875
+Glucose,50-99-7,"sugar, hexose",C6H12O6,875
+Trehalose,6138-23-4,"sugar, dihexose",C12H22O11,875
+Myo-inositol,87-89-8,"sugar, hexose alcohol",C6H12O6,875
+Xylose,58-86-6,"sugar, pentose",C5H10O5,875
+Mannitol,69-65-8,"sugar, hexose alcohol",C6H14O6,875
+n-Acetyl glucosamine,7512-17-6,"sugar, amino sugar",C8H15NO6,875
+Sodium-L-Lactate,867-56-1,organic acid,C3H5O3Na,525
+Malic acid,6915-15-7,organic acid,C4H6O5,525
+Citric acid,77-92-9,organic acid,C6H8O7,525
+Succinic acid,110-15-6,organic acid,C4H6O4,525
+Sodium Pyruvate,113-24-6,organic acid,C3H4O3,525
+alpha Ketoglutaric acid,328-50-7,organic acid,C5H6O5,525
+Citrulline,372-75-8,amino acid,C6H13N3O3,525
+Alanine,56-41-7,amino acid,C3H7NO2,175
+Arginine,74-79-3,amino acid,C6H14N4O2,175
+Asparagine,70-47-3,amino acid,C4H8N2O3,175
+Aspartic acid,56-84-8,amino acid,C4H7NO4,175
+Cysteine,52-90-4,amino acid,C3H7NO2S,175
+Glutamic acid,56-86-0,amino acid,C5H9NO4,175
+Glutamine,56-85-9,amino acid,C5H10N2O3,175
+Glycine,56-40-6,amino acid,C2H5NO2,175
+Histidine,71-00-1,amino acid,C6H9N3O2,175
+Isoleucine,73-32-5,amino acid,C6H13NO2,175
+Leucine,61-90-5,amino acid,C6H13NO2,175
+Lysine,56-87-1,amino acid,C6H14N2O2,175
+Methionine,63-68-3,amino acid,C5H11NO2S,175
+Phenylalanine,63-91-2,amino acid,C9H11NO2,175
+Proline,147-85-3,amino acid,C5H9NO2,175
+Serine,56-45-1,amino acid,C3H7NO3,175
+Threonine,72-19-5,amino acid,C4H9NO3,175
+Tryptophan,73-22-3,amino acid,C11H12N2O2,175
+Tyrosine,60-18-4,amino acid,C9H11NO3,175
+Valine,72-18-4,amino acid,C5H11NO2,175
+5-methyluridine,1463-10-1,nucleoside,C10H14N2O6,17.5
+Adenine,73-24-5,nucleobase,C5H5N5,17.5
+Adenosine,58-61-7,nucleoside,C10H13N5O4,17.5
+Cytidine,65-46-3,nucleoside,C9H13N3O5,17.5
+Cytosine,71-30-7,nucleobase,C4H5N3O,17.5
+Guanine,73-40-5,nucleobase,C5H5N5O,17.5
+Guanosine,118-00-3,nucleoside,C10H13N5O5,17.5
+Hypoxanthine,68-94-0,nucleobase,C5H4N4O,17.5
+Inosine,58-63-9,nucleoside,C10H12N4O5,17.5
+Thymine,65-71-4,nucleobase,C5H6N2O2,17.5
+Uracil,66-22-8,nucleobase,C4H4N2O2,17.5
+Uridine,58-96-8,nucleoside,C9H12N2O6,17.5
+Xanthine,69-89-6,nucleobase,C5H4N4O2,17.5
+Xanthosine,5968-90-1,nucleobase,C10H12N4O6,17.5
+gamma-Aminobutyric acid,1956/12/2,amino acid derivative,C4H9NO2,17.5
+Ectoine,96702-03-3,osmolyte,C6H10N2O2,17.5
+Trimethylglycine,107-43-7,amino acid derivative,C5H11NO2,17.5
+N-Acetyl-glutamic acid,1188-37-0,amino acid derivative,C7H11NO5,17.5
+Nicotinamide,98-92-0,vitamin,C6H6N2O,17.5
+Ornithine HCl,3184-13-2,amino acid derivative,C5H12N2O2HCl,17.5
+Shikimic acid,138-59-0,other,C7H10O5,17.5
+Spermidine,124-20-9,polyamine,C10H26N4,17.5
+Taurine,107-35-7,other,C2H7NO3S,17.5
+Trigonelline HCl,6138-41-6,alkaloid,C7H7NO2HCl,17.5
+Carnitine HCl,6645-46-1,other,C7H16NO3HCl,17.5
+choline chloride,67-48-1,osmolyte,C5H14NOCl,17.5
+n-Acetyl-glutamine,2490-97-3,amino acid derivative,C7H12N2O4,17.5
+n-Acetyl-lysine,1946-82-3,amino acid derivative,C8H16N2O3,17.5
+n-Acetyl-muramic acid,10597-89-4,other,C11H19NO8,17.5
+sn-glycero-3-phosphocholine,28319-77-9,phospholipid,C8H20NO6P,17.5

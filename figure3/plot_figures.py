@@ -336,10 +336,6 @@ def plot_sim_v_exp_scatter(sim_results: pd.DataFrame, exp_results: pd.DataFrame,
         exp_mat,
         sim_mat,
     )
-    
-    sns.histplot(null, kde=True, color="skyblue")
-    plt.axvline(x=np.mean(null), color='red', linestyle='--', linewidth=2, label='Mean')
-    plt.axvline(x=r2, color='purple', linestyle='--', linewidth=2, label='Observed r2')
 
     # Plot all pairs
     ax.scatter(sim_exp_df.sim, sim_exp_df.exp_avg, s=30, c='lightblue')
