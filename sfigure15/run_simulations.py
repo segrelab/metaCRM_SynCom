@@ -32,9 +32,8 @@ def progress_bar(current, total, bar_length=40):
     if ending:
         print(ending, end='')
 
-def shuffle_labels(t0_abun: list):
+def shuffle_labels(t0_abun: list, n_perm):
     t0_pseudo = [x if x > 0 else x + 0.0001 for x in t0_abun]
-    n_perm = 100
 
     t0_shuffles = [random.sample(t0_pseudo, len(t0_pseudo)) for _ in range(n_perm)]
     return t0_shuffles
@@ -46,10 +45,11 @@ if __name__ == "__main__":
     os.makedirs(args.out, exist_ok=True)
 
     random.seed(42)
+    n_perm = 100
 
     t0_abun = utils.t0_wc_data()
 
-    t0_shuffles = shuffle_labels(t0_abun.values.tolist()[0])
+    t0_shuffles = shuffle_labels(t0_abun.values.tolist()[0], n_perm)
 
     passage_list = []
     sp_abun_list = []
