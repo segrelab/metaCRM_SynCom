@@ -12,6 +12,7 @@ dependencies:
   - pandas=2.3.*
   - statsmodels=0.14.*
   - networkx=3.4.*
+  - scikit-learn=1.6.*
 
   # --- plotting (base variants: no Qt/X11) ---
   - matplotlib-base=3.10.*

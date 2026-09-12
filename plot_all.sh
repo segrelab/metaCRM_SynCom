@@ -71,6 +71,23 @@ echo "[Figure 6] Generating..."
 python figure6/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
 echo "[Figure 6] Done."
 
+#= Supplemental Figure 3 =#
+echo "----------------------------------------------"
+echo "[Supplemental figure 3] Generating..."
+python sfigure3/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
+echo "[Supplemental figure 3] Done."
+
+#= Supplemental Figure 13 and 14 =#
+echo "----------------------------------------------"
+echo "[Supplemental figure 13 and 14] Generating..."
+python sfigure14/plot_figures.py --data_dir $DATA_FOLDER --out $OUTPUT_FOLDER
+echo "[Supplemental figure 13 and 14] Done."
+
+#= Supplemental Figure 15 =#
+echo "----------------------------------------------"
+echo "[Supplemental figure 15] Generating..."
+python sfigure15/plot_figures.py --out $OUTPUT_FOLDER
+echo "[Supplemental figure 13 and 14] Done."
 
 echo ""
 echo "=============================================="
