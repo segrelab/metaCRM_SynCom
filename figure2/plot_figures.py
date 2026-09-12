@@ -62,11 +62,11 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     )
     g.ax_heatmap.set_yticklabels([])
     g.ax_heatmap.set_yticks([])
-    plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-    g.fig.suptitle('Experimental Metabolite Usage', fontsize=14, y=1.02, x=0.42)
+    plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode="anchor", style="italic")
+    g.fig.suptitle('Experimental metabolite usage', fontsize=14, y=1.02, x=0.42)
     
     #modify colorbar
-    g.cax.set_title('Metabolite\nUsage\n', fontsize=10, pad=15)
+    g.cax.set_title('Metabolite\nusage\n', fontsize=10, pad=15)
     cbar = g.cax
     ticks = cbar.get_yticks()
     tick_labels = [f'{int(t)}+' if t==1 else str(t) for t in ticks]
@@ -125,7 +125,7 @@ def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
             if s != num_species-1:
                 ax.set_xticklabels([])
             ax.set_title(cls if s==0 else "")
-            ax.set_ylabel(sp if c==0 else "", fontsize=12)
+            ax.set_ylabel(sp if c==0 else "", fontsize=12, style="italic")
     
     #long legend
     legend_elements = []
@@ -134,7 +134,7 @@ def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
         for met in met_class_df[met_class_df['metabolite_class']==cls]['metabolite']:
             legend_elements.append(Patch(color=color_map[cls][met], label=met))
     fig.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.15,0.5),
-               title="Metabolite Classes", fontsize=11, title_fontsize=12)
+               title="Metabolite classes", fontsize=11, title_fontsize=12)
     
     fig.supxlabel("Time (hr)", fontsize=16)
     fig.supylabel("Log10 Metabolite Ratio", fontsize=16)
@@ -182,7 +182,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
             if c != 0:
                 ax.set_yticklabels([])
                 ax.set_xticklabels([])
-            ax.set_title(cls if s==0 else "")
+            ax.set_title(cls if s==0 else "", style="italic")
             ax.set_ylabel(sp if c==0 else "", fontsize=12)
         if row_y_values:
             y_min = min(row_y_values) - 0.1*abs(min(row_y_values))
@@ -198,7 +198,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
         for met in met_class_df[met_class_df['metabolite_class']==cls]['metabolite']:
             legend_elements.append(Patch(color=color_map[cls][met], label=met))
     fig.legend(handles=legend_elements, loc='center right', bbox_to_anchor=(1.15,0.5),
-               title="Metabolite Classes", fontsize=11, title_fontsize=12)
+               title="Metabolite classes", fontsize=11, title_fontsize=12)
     
     fig.supxlabel("N ($10^9$ CFU/ml)", fontsize=16)
     fig.supylabel("dR/R*dt (1/hr)", fontsize=16)
@@ -241,7 +241,7 @@ def plot_Sfig_3(od_time_df, growth_df, ncols=5, figsize=(12, 8),
         ax.plot(full_data['Time'], full_data['OD'], '-',
                 color=full_line_color, label='growth curve', lw=1.5, alpha=0.8)
 
-        ax.set_title(species, fontsize=12)
+        ax.set_title(species, fontsize=12, style="italic")
         ax.set_xlabel("Time (hr)")
         ax.set_ylabel("OD600")
         ax.grid(False)
@@ -277,7 +277,7 @@ def plot_Sfig_4(df, outfile=None):
         ax.plot(sub["x"], sub["yfit"], color="grey")
 
         #species name
-        ax.set_title(sub["species_name"].iloc[0], fontsize=10)
+        ax.set_title(sub["species_name"].iloc[0], fontsize=10, style="italic")
 
         ax.tick_params(labelsize=7)
         ax.xaxis.get_offset_text().set_size(7)
@@ -325,7 +325,7 @@ def plot_Sfig_5b(C1, C2, outfile=None):
     ax.set_ylabel(r'$C_{i\alpha}$ fitted from simulated annealing (mL/hr)')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9)
+    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, style="italic")
     plt.tight_layout()
 
     if outfile:
@@ -432,6 +432,10 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
         vmin=vmin, vmax=vmax,
         yticklabels=[utils.get_species_name(idx) for idx in glist.index]
     )
+
+    for tick in ax2.get_yticklabels():
+        tick.set_fontstyle('italic')
+
     ax2.set_xticks([])
     ax2.set_xlabel("$g_i$", fontsize=12)
     ax2.xaxis.set_label_position('top')
@@ -448,11 +452,11 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     ax3.xaxis.set_label_position('top')
 
     #other plotting options
-    g.cax.set_title('Energy\nUptake Rate\n$C_{i\\alpha}\\cdot\\omega_{\\alpha}$',
+    g.cax.set_title('Energy\nuptake rate\n$C_{i\\alpha}\\cdot\\omega_{\\alpha}$',
                     fontsize=11, pad=15)
     g.fig.text(
         0.5, 0.2,
-        '            Fitted CRM Metabolite Usage Parameters',
+        '            Fitted CRM metabolite usage parameters',
         ha='center', va='top', fontsize=14
     )
     g.ax_cbar.set_position([0.93, 0.25, 0.03, 0.4])
@@ -513,7 +517,7 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
     ax0_bot.plot([1], [1], transform=ax0_bot.transAxes, **kwargs)
 
     # top subplot text and labels
-    ax0_top.set_title('Initial Model Parameters', fontsize=12)
+    ax0_top.set_title('Initial model parameters', fontsize=12)
     ax0_bot.text(0.05, 0.75, f'r = {i_r:.2f}\np = {i_p:.2f}',
                  transform=ax0_bot.transAxes, fontsize=11)
 
@@ -523,8 +527,8 @@ def plot_Mfig_2c(init_sp_x, fit_sp_x, exp_abundance, outfile=None):
                     label=utils.get_species_name(fitted_cfu_final.index.to_list()[idx]),
                     color='royalblue')
     ax1.axline((0, 0), slope=1, c='grey', ls='--')
-    ax1.set_xlabel('Measured Population Abundance ($10^9$ cfu/mL)', fontsize=12)
-    ax1.set_title('Optimized Model Parameters', fontsize=12)
+    ax1.set_xlabel('Measured population abundance ($10^9$ cfu/mL)', fontsize=12)
+    ax1.set_title('Optimized model parameters', fontsize=12)
     ax1.set_ylim(0, 1.6)
     ax1.text(0.05, 0.75, f'r = {f_r:.2f}\np = {f_p:.2e}',
              transform=ax1.transAxes, fontsize=11)
@@ -618,7 +622,7 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None, jitter_a
         #plot simulated vs. measured usage
         ax.scatter(sim_usage_jittered, exo_usage_jittered,
                    color=colors, linewidth=0.5, edgecolor='none', s=45, alpha=0.65)
-        ax.set_title(sp_name, fontsize=15)
+        ax.set_title(sp_name, fontsize=15, style="italic")
         #pearson correlation - use UNJITTERED values for the actual stat
         mask = mask_valid
         if np.sum(mask) > 1:
@@ -698,7 +702,7 @@ def plot_g_compare(g_init, g_fit, outfile=None):
     line = plt.Line2D([0], [0], color='grey', linestyle='--', linewidth=1, label='1:1')
     handles.append(line)
     ax_left.legend(handles=handles, loc='center right',
-                   bbox_to_anchor=(2.15, 0.5), fontsize=9)
+                   bbox_to_anchor=(2.15, 0.5), fontsize=9, style="italic")
 
     plt.tight_layout()
     if outfile:
@@ -737,7 +741,7 @@ def plot_D_compare(D1, D2, outfile=None):
     ax.set_ylabel(r'${D^i}_{\alpha\beta}$ fitted from simulated annealing')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9)
+    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, style="italic")
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=300)
@@ -778,15 +782,15 @@ if __name__ == "__main__":
     d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.png"))
-    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.png"))
-    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.png"))
-    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.png"))
-    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.png"))
-    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.png"))
-    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.png"))
-    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.png"))
-    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.png"))
-    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.png"))
-    plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.png'))
-    plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.png'))
+    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.pdf"))
+    col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.pdf"))
+    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.pdf"))
+    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.pdf"))
+    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.pdf"))
+    plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.pdf"))
+    plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.pdf"))
+    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.pdf"))
+    plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.pdf"))
+    plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.pdf"))
+    plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.pdf'))
+    plot_D_compare(d_dict_fitted, d_dict_init, outfile=os.path.join(args.out, 'compare_D.pdf'))
