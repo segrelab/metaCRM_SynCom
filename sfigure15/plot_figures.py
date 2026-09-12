@@ -19,6 +19,10 @@ sys.path.append(os.path.abspath("/projectnb/cometsfba/rowanon/projects/metaCRM_S
 
 import figure4.process_data as process_data
 
+
+from argparse import ArgumentParser
+from pathlib import Path
+
 import utils
 
 INV_MAP = {1:'1319',2:'1320',3:'1321',4:'1323',5:'1324',6:'1325',7:'1327',8:'1329',9:'1330',10:'1331',11:'1334',12:'1337',13:'1338',14:'1336',15:'1538',16:'1602',17:'1597'}
@@ -82,14 +86,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
-    passage_list = pd.read_csv("../data/sim_whole_comm/t0_shufles.csv")
+    passage_list = pd.read_csv("./data/sim_whole_comm/t0_shuffles.csv")
 
-    for passage in passage_list:
-        passage.reset_index(inplace=True)
-
-    species_cols = passage_list[0].columns.tolist()
-    species_cols.remove('passage')
-    final_abun = np.array([df.loc[df['passage'].idxmax(), species_cols].values for df in passage_list])
+    species_cols = passage_list.columns.drop(['passage', 'permutation'])
+    final_abun = passage_list.loc[passage_list.groupby('permutation')['passage'].idxmax(), species_cols].to_numpy()
 
     t0 = utils.t0_wc_data()
     deviation_factor = utils.deviation_factor()
@@ -101,11 +101,11 @@ if __name__ == "__main__":
     norm_factors.loc['OD_cfu_16s'] = norm_factors.loc['Average CFU ml^-1'] * norm_factors.loc['16s_copy_number']
     norm_factors
 
-    sp_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True)
-    sp_nocross_df, _ = process_data.simulate_whole_community_exp(crossfeeding=False)
-    sp_t0_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'])
-    sp_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
-    sp_t0_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'], od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
+    sp_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim.csv')
+    sp_nocross_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim_nc.csv')
+    sp_t0_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
+    sp_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_cfu.csv')
+    sp_t0_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
 
     sp_final = sp_df.iloc[-1]
     nocross_final = sp_nocross_df.iloc[-1]

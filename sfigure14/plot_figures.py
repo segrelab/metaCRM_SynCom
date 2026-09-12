@@ -280,11 +280,11 @@ if __name__ == "__main__":
     plot_passage_composition(exp_dfs, utils.get_species_colormap(name_key=False), passage=5, labels=utils.sps_to_name, title="Experimental final passage composition",
                              outfile=os.path.join(args.out, "Sfig_13d.pdf"))
 
-    sp_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True)
-    sp_nocross_df, _ = process_data.simulate_whole_community_exp(crossfeeding=False)
-    sp_t0_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'])
-    sp_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
-    sp_t0_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'], od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
+    sp_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim.csv')
+    sp_nocross_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim_nc.csv')
+    sp_t0_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
+    sp_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_cfu.csv')
+    sp_t0_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
 
     sim_dfs = {"Initial equal abundance": sp_df, "Initial equal abundance (l=0)": sp_nocross_df, "T0 16S abundance": sp_t0_df,
             "Equal OD, OD-CFU": sp_cfu_df, "T0 16S abundance, OD-CFU": sp_t0_cfu_df}

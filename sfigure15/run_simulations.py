@@ -41,23 +41,44 @@ def shuffle_labels(t0_abun: list, n_perm):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run multistability analysis.")
     parser.add_argument("--out", required=True, help="Directory to save output data.")
+    parser.add_argument("--run_perms", required=True, help="Option to run large n permutations.")
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
     random.seed(42)
     n_perm = 100
 
-    t0_abun = utils.t0_wc_data()
+    if args.run_perms == True:
+        t0_abun = utils.t0_wc_data()
 
-    t0_shuffles = shuffle_labels(t0_abun.values.tolist()[0], n_perm)
+        t0_shuffles = shuffle_labels(t0_abun.values.tolist()[0], n_perm)
 
-    passage_list = []
-    sp_abun_list = []
+        passage_list = []
+        sp_abun_list = []
 
-    for i, sp_abun in enumerate(t0_shuffles):
-        passages, _ = process_data.simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=sp_abun)
-        passage_list.append(passages)
-        progress_bar(i+1, n_perm)
+        for i, sp_abun in enumerate(t0_shuffles):
+            passages, _ = process_data.simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=sp_abun)
+            passage_list.append(passages)
+            progress_bar(i+1, n_perm)
 
-    all_passages = pd.concat(passage_list, keys=np.arange(n_perm)).reset_index(level=0, names="permutation")
-    all_passages.to_csv(os.path.join(args.out, "sim_whole_comm/t0_shuffles.csv"))
+        all_passages = pd.concat(passage_list, keys=np.arange(n_perm)).reset_index(level=0, names="permutation")
+        all_passages.to_csv(os.path.join(args.out, "sim_whole_comm/t0_shuffles.csv"))
+
+    # Run simulations for different normalization schemes
+    t0 = utils.t0_wc_data()
+    deviation_factor = utils.deviation_factor()
+    cp_num_df = utils.cn_16s()
+    od_cfu_df = utils.od_to_cfu()
+
+    norm_factors = pd.concat([t0, deviation_factor, cp_num_df, od_cfu_df])
+    norm_factors.loc['OD_cfu_16s'] = norm_factors.loc['Average CFU ml^-1'] * norm_factors.loc['16s_copy_number']
+    
+
+    sp_t0_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'])
+    sp_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
+    sp_t0_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'], od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
+
+    # Save data
+    sp_t0_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_t0.csv"))
+    sp_cfu_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_cfu.csv"))
+    sp_t0_cfu_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_cfu.csv"))
