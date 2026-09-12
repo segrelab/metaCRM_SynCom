@@ -79,6 +79,7 @@ if __name__ == "__main__":
     sp_t0_cfu_df, _ = process_data.simulate_whole_community_exp(crossfeeding=True, t0_abun=norm_factors.loc['crm_t0'], od_cfu_conv=norm_factors.loc['Average CFU ml^-1'])
 
     # Save data
-    sp_t0_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_t0.csv"))
-    sp_cfu_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_cfu.csv"))
-    sp_t0_cfu_df.save_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_cfu.csv"))
+    os.makedirs(os.path.join(args.out, "sim_whole_comm/normalizations"), exist_ok=True)
+    sp_t0_df.to_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_t0.csv"))
+    sp_cfu_df.to_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_cfu.csv"))
+    sp_t0_cfu_df.to_csv(os.path.join(args.out, "sim_whole_comm/normalizations/sp_t0_cfu.csv"))
