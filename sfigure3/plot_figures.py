@@ -108,11 +108,20 @@ def plot_net_C_vs_growth(gr, x_label, sp_color_palette):
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser(description="Generate all figures from CSV data.")
+    parser.add_argument("--data_dir", required=True, help="Directory with input CSV files.")
+    parser.add_argument("--out", required=True, help="Directory to save output figures.")
+    args = parser.parse_args()
+    os.makedirs(args.out, exist_ok=True)
+
     #### Formula information ####
     # Information about # of carbons for NLDM metabolites
     formulas = pd.read_csv(os.path.join(args.data_dir, "NLDM-formulas.csv"))
     # Change names to lowercase
     formulas['Name'] = formulas['Name'].str.lower()
+
+    # Get species color palette
+    sp_color_palette = utils.get_species_colormap()
 
     # Metabolite timecourse data
     met_time = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/met_time_df.csv"))
@@ -120,8 +129,8 @@ if __name__ == "__main__":
 
     #### Plot and save figures ####
     fig_props = {
-        bbox_inches: 'tight',
-        transparent: 'True'
+        'bbox_inches': 'tight',
+        'transparent': 'True'
     }
 
     # Get C count for formulas
@@ -155,7 +164,7 @@ if __name__ == "__main__":
 
     # Panel a
     carbon_balance = plot_carbon_balance(agg)
-    carbon_balance.savefig(outfile=os.path.join(args.out, "SFig3a.pdf"), **fig_props)
+    carbon_balance.savefig(os.path.join(args.out, "Sfig3-SFig3a.pdf"), **fig_props)
 
     # Panel b
     per_met = (
@@ -167,16 +176,25 @@ if __name__ == "__main__":
         .assign(net_C=lambda d: d["net"] * d["n_C"])
     )
 
+    net = met_time.loc[met_time["n_C"].notna()].assign(
+        net=lambda d: d["secreted"] - d["consumed"],          # == median_usage
+        net_C=lambda d: (d["secreted"] - d["consumed"]) * d["n_C"],
+    )
+
+    per_sp = (net.groupby("species", observed=True)[["net", "net_C"]]
+                .sum(min_count=1)
+                .reset_index())
+
     class_order = ["Sugar", "Organic_Acid", "Amino_Acid", "Nucleobase", "Others"]
     palette = sns.color_palette("husl", n_colors=len(class_order))
     class_colors = dict(zip(class_order, palette))
 
     net_dist = plot_net_distributions_by_class(per_met, class_colors, class_order)
-    net_dist.savefig(outfile=os.path.join(args.out, "SFig3b.pdf"), **fig_props)
+    net_dist.savefig(os.path.join(args.out, "Sfig3-SFig3b.pdf"), **fig_props)
 
     # Panel c
     # Plot net carbon flux by growth rate
-    glist = pd.read_csv(os.path.join(args.data_dir, 'final_crm_params/glist_fitted.csv', index_col=0))
+    glist = pd.read_csv(os.path.join(args.data_dir, 'final_crm_params/glist_fitted.csv'), index_col=0)
     translate = utils.sps_to_name  # Translation dict
     normg = glist
     normg = pd.DataFrame(normg)
@@ -197,5 +215,5 @@ if __name__ == "__main__":
     grpredictor = plot_net_C_vs_growth(gr, "Fitted growth rate (g)", sp_color_palette)
     bfpredictor = plot_net_C_vs_growth(bf, "Final OD600", sp_color_palette)
 
-    grpredictor.savefig(outfile=os.path.join(args.out, "SFig3ca.pdf"), **fig_props)
-    bfpredictor.savefig(outfile=os.path.join(args.out, "SFigcb.pdf"), **fig_props)
+    grpredictor.savefig(os.path.join(args.out, "Sfig3-SFig3ca.pdf"), **fig_props)
+    bfpredictor.savefig(os.path.join(args.out, "Sfig3-SFigcb.pdf"), **fig_props)

@@ -10,7 +10,7 @@ import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
 from itertools import combinations
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import root_mean_squared_error, r2_score
 
 import matplotlib.pyplot as plt
 import textalloc as ta
@@ -240,9 +240,10 @@ def plot_pearson_corr(pearson_rs: pd.DataFrame, outfig: Path) -> None:
         
     plt.savefig(outfig, dpi=600, bbox_inches='tight', pad_inches=0.1)
     
-def plot_growth_rate_comparison(avg_df: pd.DataFrame, outfig: Path) -> None:
-    C_mat, D_dict, l_mat, glist, cfu = utils.load_fitted_params()
-    
+def plot_growth_rate_comparison(avg_df: pd.DataFrame, data_dir: Path, outfig: Path) -> None:
+
+    glist = pd.read_csv(os.path.join(data_dir, 'final_crm_params/glist_fitted.csv'), index_col=0)
+
     # Translation dict
     translate = utils.sps_to_name
     
@@ -254,10 +255,10 @@ def plot_growth_rate_comparison(avg_df: pd.DataFrame, outfig: Path) -> None:
     normg.reset_index(inplace=True)
     normg.rename(columns={normg.columns[0]: "sp", normg.columns[1]: "g"}, inplace=True)
 
-    #normg.replace(translate, inplace = True)
-
     avg_df_g = avg_df.copy()
-    
+
+    avg_df_g['sp'] = avg_df_g['sp'].astype(int)
+
     avg_df_g = avg_df_g.merge(normg, on='sp')
 
     fig = plt.figure(figsize=(5, 5))
@@ -331,7 +332,7 @@ def plot_sim_v_exp_scatter(sim_results: pd.DataFrame, exp_results: pd.DataFrame,
     exp_mat = pair_matrix(sim_exp_df, sps, "exp_avg")
     sim_mat = pair_matrix(sim_exp_df, sps, "sim")
     
-    rmse = mean_squared_error(sim_exp_df.exp_avg, sim_exp_df.sim, squared=False)
+    rmse = root_mean_squared_error(sim_exp_df.exp_avg, sim_exp_df.sim)
     r2, p_val, null = species_label_permutation_test(
         exp_mat,
         sim_mat,
@@ -382,5 +383,5 @@ if __name__ == "__main__":
     plot_sim_v_exp_abun(sim_ratios, exp_ratios, args.out / "Mfig3a.pdf")
     plot_average_abundance(avg_df, args.out / "Mfig3b.pdf")
     plot_pearson_corr(pearson_rs, args.out / "Mfig3c.pdf")
-    plot_growth_rate_comparison(avg_df, args.out / "Sfig6a.pdf")
-    plot_sim_v_exp_scatter(sim_ratios, exp_ratios, args.out / "Sfig6b.pdf")
+    plot_growth_rate_comparison(avg_df, args.data_dir, args.out / "fig3-Sfig6a.pdf")
+    plot_sim_v_exp_scatter(sim_ratios, exp_ratios, args.out / "fig3-Sfig6b.pdf")

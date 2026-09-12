@@ -325,7 +325,7 @@ def plot_Sfig_5b(C1, C2, outfile=None):
     ax.set_ylabel(r'$C_{i\alpha}$ fitted from simulated annealing (mL/hr)')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, style="italic")
+    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, prop={'style':"italic"})
     plt.tight_layout()
 
     if outfile:
@@ -702,12 +702,12 @@ def plot_g_compare(g_init, g_fit, outfile=None):
     line = plt.Line2D([0], [0], color='grey', linestyle='--', linewidth=1, label='1:1')
     handles.append(line)
     ax_left.legend(handles=handles, loc='center right',
-                   bbox_to_anchor=(2.15, 0.5), fontsize=9, style="italic")
+                   bbox_to_anchor=(2.15, 0.5), fontsize=9, prop={'style':"italic"})
 
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=300, bbox_inches='tight')
-    plt.show()
+    
     return
 
 def plot_D_compare(D1, D2, outfile=None):
@@ -741,11 +741,11 @@ def plot_D_compare(D1, D2, outfile=None):
     ax.set_ylabel(r'${D^i}_{\alpha\beta}$ fitted from simulated annealing')
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, style="italic")
+    ax.legend(loc='center right', bbox_to_anchor=(1.45, 0.5), fontsize=9, prop={'style':"italic"})
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=300)
-    plt.show()
+    
     return
 
 
@@ -782,14 +782,14 @@ if __name__ == "__main__":
     d_dict_fitted = pd.read_csv(os.path.join(args.data_dir, "final_crm_params/d_dict_fitted.csv"))
 
     #plot figs
-    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Sfig_1.pdf"))
+    plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "fig2-Sfig_1.pdf"))
     col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.pdf"))
-    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "Sfig_2.pdf"))
-    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "Sfig_3.pdf"))
-    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "Sfig_5b.pdf"))
+    plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "fig2-Sfig_2.pdf"))
+    plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "fig2-Sfig_3.pdf"))
+    plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "fig2-Sfig_5b.pdf"))
     plot_Mfig_2c(init_sp_mono, fit_sp_mono, growth_df_clean, outfile=os.path.join(args.out, "Mfig_2c.pdf"))
     plot_Mfig_2b(cmat_fitted, glist_fitted, l_fitted, metab_class_df, col_order, outfile=os.path.join(args.out, "Mfig_2b.pdf"))
-    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "Sfig_4.pdf"))
+    plot_Sfig_4(gparam_df, outfile=os.path.join(args.out, "fig2-Sfig_4.pdf"))
     plot_Mfig_2d(fit_met_df, metab_time_df, metab_class_df, outfile=os.path.join(args.out, "Mfig_2d_fit.pdf"))
     plot_Mfig_2d(init_met_df, metab_time_df, metab_class_df, jitter_amount=0.04, outfile=os.path.join(args.out, "Mfig_2d_init.pdf"))
     plot_g_compare(pd.Series(glist_init['0']), pd.Series(glist_fitted['0']), outfile=os.path.join(args.out, 'compare_g.pdf'))

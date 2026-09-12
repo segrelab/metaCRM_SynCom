@@ -18,7 +18,6 @@ sys.path.append(os.path.abspath("../"))
 #include figure 4 plotting code
 sys.path.append(os.path.abspath("../figure4/")) 
 
-import process_data
 import utils
 
 from argparse import ArgumentParser
@@ -187,7 +186,7 @@ def plot_agreement_heatmap(corr, passage=None, exp_order=None, sim_order=None,
 
 
 def plot_agreement_passages(corr, exp_order=None, sim_order=None, sim_colors=None,
-                            label="Pearson $r$", title_extra="", full_range=Tru,
+                            label="Pearson $r$", title_extra="", full_range=True,
                             outfile=None):
     exps = exp_order or corr["experiment"].unique().tolist()
     sims = sim_order or corr["simulation"].unique().tolist()
@@ -229,6 +228,7 @@ def plot_agreement_passages(corr, exp_order=None, sim_order=None, sim_colors=Non
 if __name__ == "__main__":
     parser = ArgumentParser(description="Plot 16s normalizations.")
     parser.add_argument("--out", required=True, help="Directory to save output figures.")
+    parser.add_argument("--data_dir", required=True, help="Directory with input data.")
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -259,8 +259,8 @@ if __name__ == "__main__":
 
     "Experimental abundances and normalized abundances"
 
-    exp_a = pd.read_csv("../data/exp_whole_comm/df_a.csv", index_col=0)
-    exp_b = pd.read_csv("../data/exp_whole_comm/df_b.csv", index_col=0)
+    exp_a = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_a.csv"), index_col=0)
+    exp_b = pd.read_csv(os.path.join(args.data_dir, "exp_whole_comm/df_b.csv"), index_col=0)
 
     #divide by deviation factor
     exp_a_devfac = exp_a.div(norm_factors.loc['deviation_factor'])
@@ -280,16 +280,16 @@ if __name__ == "__main__":
     plot_passage_composition(exp_dfs, utils.get_species_colormap(name_key=False), passage=5, labels=utils.sps_to_name, title="Experimental final passage composition",
                              outfile=os.path.join(args.out, "Sfig_13d.pdf"))
 
-    sp_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim.csv')
-    sp_nocross_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim_nc.csv')
-    sp_t0_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
-    sp_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_cfu.csv')
-    sp_t0_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
+    sp_df = pd.read_csv(os.path.join(args.data_dir, 'sim_whole_comm/wc_sp_sim.csv'), index_col=0)
+    sp_nocross_df = pd.read_csv(os.path.join(args.data_dir, 'sim_whole_comm/wc_sp_sim_nc.csv'), index_col=0)
+    sp_t0_df = pd.read_csv(os.path.join(args.data_dir, 'sim_whole_comm/normalizations/sp_t0.csv'), index_col=0)
+    sp_cfu_df = pd.read_csv(os.path.join(args.data_dir, 'sim_whole_comm/normalizations/sp_cfu.csv'), index_col=0)
+    sp_t0_cfu_df = pd.read_csv(os.path.join(args.data_dir, 'sim_whole_comm/normalizations/sp_t0_cfu.csv'), index_col=0)
 
     sim_dfs = {"Initial equal abundance": sp_df, "Initial equal abundance (l=0)": sp_nocross_df, "T0 16S abundance": sp_t0_df,
             "Equal OD, OD-CFU": sp_cfu_df, "T0 16S abundance, OD-CFU": sp_t0_cfu_df}
 
-    plot_passage_composition(dfs, utils.get_species_colormap(name_key=False), passage=5, labels=utils.sps_to_name, title="Simulated final passage composition",
+    plot_passage_composition(sim_dfs, utils.get_species_colormap(name_key=False), passage=5, labels=utils.sps_to_name, title="Simulated final passage composition",
                              outfile=os.path.join(args.out, "Sfig_14e.pdf"))
 
     METHOD = "spearman"          # <- the two knobs
@@ -300,7 +300,7 @@ if __name__ == "__main__":
     corr = correlate_compositions(exp_dfs, sim_dfs, method=METHOD)
 
     fig3, grid = plot_agreement_heatmap(corr, passage=5, exp_order=list(exp_dfs),
-                                        sim_order=list(sim_dfs), label=LABEL, outfile=os.path.join(args.out, "Sfig_15a.pdf"))
+                                        sim_order=list(sim_dfs), label=LABEL, outfile=os.path.join(args.out, "Sfig15-Sfig_15a.pdf"))
     
     fig4 = plot_agreement_passages(corr, exp_order=list(exp_dfs), sim_order=list(sim_dfs),
-                                label=LABEL, outfile=os.path.join(args.out, "Sfig_15b.pdf"))
+                                label=LABEL, outfile=os.path.join(args.out, "Sfig15-Sfig_15b.pdf"))

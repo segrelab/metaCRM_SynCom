@@ -69,7 +69,7 @@ def plot_Mfig_4a(df_long, outfile=None):
     
     if outfile:
         plt.savefig(outfile, dpi=600)
-    plt.show()
+    
 
     #return species_order to be used for the other bar plots of similar style
     return species_order
@@ -131,7 +131,7 @@ def plot_whole_community_exp2(exp2_df_passages, sp_order, outfile=None):
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
 
     return
 
@@ -179,7 +179,7 @@ def plot_whole_community_simulation(df_pivot, species_order_names, outfile=None)
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=600)
-    plt.show()
+    
 
 def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, outfile=None):
     
@@ -235,7 +235,7 @@ def plot_whole_community_correlation(df_exp1, df_exp2, df_sim, df_sim_no_cf, out
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=600)
-    plt.show()
+    
     
     return 
 
@@ -332,7 +332,7 @@ def plot_all_loo_effects(loo_sim_vals, loo_exp_vals, outfile=None):
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=600)
-    plt.show()
+    
     return
 
 def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
@@ -487,7 +487,7 @@ def plot_loo_abundance_comparison(df_sim, df_exp, outfile=None):
     if outfile:
         plt.savefig(outfile, dpi=600)
 
-    plt.show()
+    
 
 def plot_whole_community_correlation_arth(df_exp1, df_exp2, df_sim, df_sim_no_cf, df_sim_no_arth, outfile=None):
     # Assume all dataframes have same shape: passages x species
@@ -560,7 +560,7 @@ def plot_whole_community_correlation_arth(df_exp1, df_exp2, df_sim, df_sim_no_cf
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=600)
-    plt.show()
+    
     return corr_df
 
 def plot_loo_onesp(df_exp, df_sim, sp, outfile=None):
@@ -601,7 +601,7 @@ def plot_loo_onesp(df_exp, df_sim, sp, outfile=None):
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
 
     return 
 
@@ -634,7 +634,7 @@ def plot_interaction_matrix(interaction_df, title, sps=utils.sps_names, outfile=
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
 
 def plot_interaction_compare(co_culture_int_df, loo_interaction_df, outfile=None):
     #plot correlation between the two interaction metrics
@@ -676,7 +676,7 @@ def plot_interaction_compare(co_culture_int_df, loo_interaction_df, outfile=None
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
     return
 
 
@@ -721,12 +721,12 @@ if __name__ == "__main__":
     plot_whole_community_simulation(wc_sp_sim, col_order, outfile=os.path.join(args.out, "Mfig_4b.pdf"))
     plot_whole_community_simulation(wc_sp_nc, col_order, outfile=os.path.join(args.out, "Mfig_4c.pdf"))
     plot_whole_community_correlation(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, outfile=os.path.join(args.out, "Mfig_4d.pdf"))
-    plot_whole_community_correlation_arth(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, wc_sp_noarth, outfile=os.path.join(args.out, "Sfig_8.pdf"))
+    plot_whole_community_correlation_arth(exp_a_clean, exp_b_clean, wc_sp_sim, wc_sp_nc, wc_sp_noarth, outfile=os.path.join(args.out, "fig4-Sfig_8.pdf"))
     plot_all_loo_effects(sim_loo_effects, exp_loo_effects, outfile=os.path.join(args.out, "loo_effects_bar.pdf"))
     plot_loo_abundance_comparison(sim_loo_plot, exp_loo_plot, outfile=os.path.join(args.out, "Mfig_4e.pdf"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(args.out, "Sfig_8b.pdf"))
-    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "Sfig_8a.pdf"))
-    plot_interaction_matrix(coculture_int, title='Co-Culture Derived Interactions', outfile=os.path.join(args.out, "Sfig_7a.pdf"))
-    plot_interaction_matrix(loo_int, title='Leave-One_out Derived Interactions', outfile=os.path.join(args.out, "Sfig_7b.pdf"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Burkholderia', outfile=os.path.join(args.out, "fig4-Sfig_8b.pdf"))
+    plot_loo_onesp(exp_loo_df.copy(), sim_loo.copy(), sp='Mucilaginibacter', outfile=os.path.join(args.out, "fig4-Sfig_8a.pdf"))
+    plot_interaction_matrix(coculture_int, title='Co-Culture Derived Interactions', outfile=os.path.join(args.out, "fig4-Sfig_7a.pdf"))
+    plot_interaction_matrix(loo_int, title='Leave-One_out Derived Interactions', outfile=os.path.join(args.out, "fig4-Sfig_7b.pdf"))
     #plot_interaction_compare(coculture_int, loo_int, outfile=os.path.join(args.out, "Sfig_7c.pdf"))
 

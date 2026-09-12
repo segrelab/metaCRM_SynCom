@@ -32,23 +32,25 @@ def plot_final_abundances(final_abun, outfile):
 
     fig, ax = plt.subplots(figsize=(18, 6))
 
+    n_perm = len(final_abun)
+
     bottom = np.zeros(n_perm)
     x = np.arange(n_perm)
 
     for i, species in enumerate(species_cols):
         values = final_abun[:, i]
-        ax.bar(x, values, bottom=bottom, color=colormap[species], label=species, width=0.9)
+        ax.bar(x, values, bottom=bottom, color=colormap[species], label=utils.sps_to_name[species], width=0.9)
         bottom += values
 
     ax.set_xlabel('Simulation run')
     ax.set_ylabel('Relative abundance')
     ax.set_title('Final community composition across 100 simulation runs')
     ax.set_xlim(-0.5, n_perm - 0.5)
-    ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8, ncol=1, style="italic")
+    ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=8, ncol=1, prop={'style':"italic"})
 
     plt.tight_layout()
     if outfile:
-        plt.savefig(outfile=os.path.join(args.out, "SFig15a.pdf"))
+        plt.savefig(os.path.join(args.out, "SFig15a.pdf"))
 
 def plot_distributions(final_abun, strategies, outfile=None):
     arr = np.asarray(final_abun)
@@ -64,7 +66,7 @@ def plot_distributions(final_abun, strategies, outfile=None):
             ax.scatter(np.asarray(vals)[i], 0, s=22, zorder=3,
                     label=name if i == 0 else None)
 
-        ax.set_title(utils.sps_names[i], fontsize=9)
+        ax.set_title(utils.sps_names[i], fontsize=9, style='italic')
         ax.set_yticks([])
         ax.set_ylim(-0.6, 0.6)
         ax.xaxis.set_major_locator(MaxNLocator(3))
@@ -77,7 +79,7 @@ def plot_distributions(final_abun, strategies, outfile=None):
     fig.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
 
     if outfile:
-        plt.savefig(outfile=os.path.join(args.out, "SFig15b.pdf"), bbox_inches="tight")
+        plt.savefig(os.path.join(args.out, "SFig15b.pdf"), bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -99,13 +101,12 @@ if __name__ == "__main__":
     norm_factors = pd.concat([t0, deviation_factor, cp_num_df, od_cfu_df])
 
     norm_factors.loc['OD_cfu_16s'] = norm_factors.loc['Average CFU ml^-1'] * norm_factors.loc['16s_copy_number']
-    norm_factors
 
-    sp_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim.csv')
-    sp_nocross_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim_nc.csv')
-    sp_t0_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
-    sp_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_cfu.csv')
-    sp_t0_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv')
+    sp_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim.csv', index_col=0)
+    sp_nocross_df = pd.read_csv('./data/sim_whole_comm/wc_sp_sim_nc.csv', index_col=0)
+    sp_t0_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0.csv', index_col=0)
+    sp_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_cfu.csv', index_col=0)
+    sp_t0_cfu_df = pd.read_csv('./data/sim_whole_comm/normalizations/sp_t0_cfu.csv', index_col=0)
 
     sp_final = sp_df.iloc[-1]
     nocross_final = sp_nocross_df.iloc[-1]
@@ -115,5 +116,5 @@ if __name__ == "__main__":
 
     strategies = {"equal": sp_final, "no crossfeeding": nocross_final, "measured t0": t0_final, "equal OD": odcfu_final, "t0 and OD": t0cfu_final}
 
-    plot_final_abundances(final_abun, outfile=os.path.join(args.out, "Sfig_16a.pdf"))
-    plot_distributions(final_abun, strategies, outfile=os.path.join(args.out, "Sfig_16b.pdf"))
+    plot_final_abundances(final_abun, outfile=os.path.join(args.out, "Sfig16-Sfig_16a.pdf"))
+    plot_distributions(final_abun, strategies, outfile=os.path.join(args.out, "Sfig16-Sfig_16b.pdf"))
