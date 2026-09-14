@@ -25,6 +25,9 @@ from pathlib import Path
 
 import utils
 
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 INV_MAP = {1:'1319',2:'1320',3:'1321',4:'1323',5:'1324',6:'1325',7:'1327',8:'1329',9:'1330',10:'1331',11:'1334',12:'1337',13:'1338',14:'1336',15:'1538',16:'1602',17:'1597'}
 
 def plot_final_abundances(final_abun, outfile):

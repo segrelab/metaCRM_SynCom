@@ -18,6 +18,10 @@ import utils
 from argparse import ArgumentParser
 from pathlib import Path
 
+import matplotlib as mpl
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 # Constants
 C_RE = re.compile(r"C(?![a-z])(\d*)")  # Match just "C" or "C1" not "Ca"...
 

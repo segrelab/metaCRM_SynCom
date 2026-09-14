@@ -23,6 +23,9 @@ import utils
 from argparse import ArgumentParser
 from pathlib import Path
 
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 def plot_t0_correlations(df, x_row, x_label, panels,
                          color_map=None, labels=None, legend=True, outfile=None):
     tidy = df.T.apply(pd.to_numeric, errors="coerce")   
