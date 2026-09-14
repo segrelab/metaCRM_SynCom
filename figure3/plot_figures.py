@@ -10,7 +10,7 @@ import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
 from itertools import combinations
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import root_mean_squared_error, r2_score
 
 import matplotlib.pyplot as plt
 import textalloc as ta
@@ -35,6 +35,37 @@ def conversion(x):
         return val if isinstance(val, list) else float(val)
     except:
         return float(x)
+    
+#### Compute r2 p value, bootstraps ####
+def pair_matrix(sim_exp_df, sps, val, complement=lambda v: 1 - v):
+    """
+    Creates pair matrix for permutation test based on dataframe and provided value column.
+    """
+    idx = {s: i for i, s in enumerate(sps)}
+    mat = np.full((len(sps), len(sps)), np.nan)
+    
+    for r, c, v in zip(sim_exp_df['row'], sim_exp_df['col'], sim_exp_df[val]):
+        i, j = idx[r], idx[c]
+        mat[i, j] = v
+        mat[j, i] = complement(v)
+    return mat
+
+def species_label_permutation_test(exp_mat, sim_mat, n_perm = 9999, seed=42):
+    """
+    Peforms permutation of experimental data to compute liklihood of predictions
+    """
+    rng = np.random.default_rng(seed)
+    iu = np.triu_indices(exp_mat.shape[0], k=1)
+    y_pred = sim_mat[iu]
+    
+    r2_obs = r2_score(exp_mat[iu], y_pred)
+    null = np.empty(n_perm)
+    for k in range(n_perm):
+        perm = rng.permutation(exp_mat.shape[0])
+        null[k] = r2_score(exp_mat[np.ix_(perm, perm)][iu], y_pred)
+    
+    p_val = (1 + np.count_nonzero(null >= r2_obs)) / (1 + n_perm)
+    return r2_obs, p_val, null
     
 def create_averages_df(sim_results: pd.DataFrame, exp_results: pd.DataFrame) -> pd.DataFrame:
     """ Creates a dataframe with averages and color information (for ease of plotting)"""
@@ -209,9 +240,10 @@ def plot_pearson_corr(pearson_rs: pd.DataFrame, outfig: Path) -> None:
         
     plt.savefig(outfig, dpi=600, bbox_inches='tight', pad_inches=0.1)
     
-def plot_growth_rate_comparison(avg_df: pd.DataFrame, outfig: Path) -> None:
-    C_mat, D_dict, l_mat, glist, cfu = utils.load_fitted_params()
-    
+def plot_growth_rate_comparison(avg_df: pd.DataFrame, data_dir: Path, outfig: Path) -> None:
+
+    glist = pd.read_csv(os.path.join(data_dir, 'final_crm_params/glist_fitted.csv'), index_col=0)
+
     # Translation dict
     translate = utils.sps_to_name
     
@@ -223,10 +255,10 @@ def plot_growth_rate_comparison(avg_df: pd.DataFrame, outfig: Path) -> None:
     normg.reset_index(inplace=True)
     normg.rename(columns={normg.columns[0]: "sp", normg.columns[1]: "g"}, inplace=True)
 
-    #normg.replace(translate, inplace = True)
-
     avg_df_g = avg_df.copy()
-    
+
+    avg_df_g['sp'] = avg_df_g['sp'].astype(int)
+
     avg_df_g = avg_df_g.merge(normg, on='sp')
 
     fig = plt.figure(figsize=(5, 5))
@@ -269,12 +301,12 @@ def plot_sim_v_exp_scatter(sim_results: pd.DataFrame, exp_results: pd.DataFrame,
     # Get pairs
 
     sps = exp_results.columns
-    
+
     rows = []
     for x, y in combinations(sps, 2):
         # only one half of data (no repeats)
         reps = exp_results.at[x,y]
-        rows.append((x, y, np.mean(reps), np.std(reps), sim_results.at[x, y]))
+        rows.append((x, y, np.mean(reps), np.std(reps, ddof=1), sim_results.at[x, y]))
 
     sim_exp_df = pd.DataFrame(rows, columns=["row", "col", "exp_avg", "exp_std", "sim"])
 
@@ -291,37 +323,39 @@ def plot_sim_v_exp_scatter(sim_results: pd.DataFrame, exp_results: pd.DataFrame,
                     fmt='None',
                     elinewidth=1,
                     capsize=2,
+                    c='lightblue',
                     linestyle='--',
-                    zorder=2)
-
-    # Count up how many species land in one, or two std deviations
-    TOL_FLOOR = 0.01  # Account for close misses
-
-    tol = sim_exp_df.exp_std.clip(lower=TOL_FLOOR)
-    resid = (sim_exp_df.sim - sim_exp_df.exp_avg).abs()
-    one_std = (resid <= tol).sum()
-    two_std = (resid <= 2 * tol).sum()
-    
-    print(f"Pairs within one std dev: {one_std}\n Pairs within two std dev: {two_std}")
+                    zorder=1)
 
     # plot corr and fit
+    
+    exp_mat = pair_matrix(sim_exp_df, sps, "exp_avg")
+    sim_mat = pair_matrix(sim_exp_df, sps, "sim")
+    
+    rmse = root_mean_squared_error(sim_exp_df.exp_avg, sim_exp_df.sim)
+    r2, p_val, null = species_label_permutation_test(
+        exp_mat,
+        sim_mat,
+    )
 
-    rmse = mean_squared_error(sim_exp_df.sim, sim_exp_df.exp_avg, squared=False)
-    r2 = r2_score(sim_exp_df.sim, sim_exp_df.exp_avg)
+    # Plot all pairs
+    ax.scatter(sim_exp_df.sim, sim_exp_df.exp_avg, s=30, c='lightblue')
 
-    ax.scatter(sim_exp_df.sim, sim_exp_df.exp_avg, s=30)
+    # Plot arthrobacter over
+    sim_exp_df_arth = sim_exp_df[(sim_exp_df["row"] == '1331') | (sim_exp_df["col"] == '1331')]
+    ax.scatter(sim_exp_df_arth.sim, sim_exp_df_arth.exp_avg, s=30, c='mediumblue')
 
     ax.axline((0,0), (1,1), ls='--', c="grey")
 
-    ax.text(.05, 0.95, f'RMSE = {rmse:.3f}, R² = {r2:.3f}', 
-                 transform=ax.transAxes, fontsize=11)
+    ax.text(.05, 0.95, f'RMSE = {rmse:.3f}, R² = {r2:.3f} ({p_val:.4f})',
+                  transform=ax.transAxes, fontsize=11)
 
-    ax.set_title("Predicted vs. average species abundance, all timepoints", size=14)
+    ax.set_title("Predicted vs. average species abundance, all replicates", size=14)
 
     ax.set_xlabel('Predicted species abundance', size=12)
     ax.set_ylabel('Average measured species abundance', size=12)
-    
-    plt.savefig(outfig, dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+    plt.savefig(outfig, bbox_inches='tight', pad_inches=0.1)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -346,8 +380,8 @@ if __name__ == "__main__":
     avg_df = create_averages_df(sim_ratios, exp_ratios)
 
     # Plot figures
-    plot_sim_v_exp_abun(sim_ratios, exp_ratios, args.out / "Mfig3a.png")
-    plot_average_abundance(avg_df, args.out / "Mfig3b.png")
-    plot_pearson_corr(pearson_rs, args.out / "Mfig3c.png")
-    plot_growth_rate_comparison(avg_df, args.out / "Sfig5a.png")
-    plot_sim_v_exp_scatter(sim_ratios, exp_ratios, args.out / "Sfig5b.png")
+    plot_sim_v_exp_abun(sim_ratios, exp_ratios, args.out / "Mfig3a.pdf")
+    plot_average_abundance(avg_df, args.out / "Mfig3b.pdf")
+    plot_pearson_corr(pearson_rs, args.out / "Mfig3c.pdf")
+    plot_growth_rate_comparison(avg_df, args.data_dir, args.out / "fig3-Sfig6a.pdf")
+    plot_sim_v_exp_scatter(sim_ratios, exp_ratios, args.out / "fig3-Sfig6b.pdf")
