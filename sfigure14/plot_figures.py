@@ -13,7 +13,7 @@ import scipy
 from scipy.stats import spearmanr, pearsonr, linregress
 
 #include helper functions for loading data consistently
-sys.path.append(os.path.abspath("../"))
+sys.path.append(".")
 
 #include figure 4 plotting code
 sys.path.append(os.path.abspath("../figure4/")) 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: bash plot_all.sh [output_dir_for_figs]   (default: figures)
- 
+
 # Output folder: first argument if given, otherwise "figures"
 OUTPUT_FOLDER=${1:-figures}
 DATA_FOLDER=data
@@ -15,17 +15,21 @@ echo "=============================================="
 
 ENV_NAME=crm-syncom
 
-if [ "$(basename "${CONDA_PREFIX:-}")" != "$ENV_NAME" ]; then
-    echo "[error] The '$ENV_NAME' conda environment is not active."
-    echo "[error] Please run the following first:"
-    echo "[error]     conda env create -f environment.yml   # first time only"
-    echo "[error]     conda activate $ENV_NAME"
-    exit 1
+if [ -z "${CONDA_PREFIX:-}" ]; then
+    echo "[warning] No conda environment appears to be active."
+    echo "[warning] Expected '$ENV_NAME'. Continuing anyway -- imports may fail."
+    echo "[warning] To set it up:"
+    echo "[warning]     conda env create -f environment.yml   # first time only"
+    echo "[warning]     conda activate $ENV_NAME"
+elif [ "$(basename "$CONDA_PREFIX")" != "$ENV_NAME" ]; then
+    echo "[warning] Active environment is '$(basename "$CONDA_PREFIX")', not '$ENV_NAME'."
+    echo "[warning] Continuing anyway -- results may differ from the manuscript."
+else
+    echo "[setup] Conda environment: $ENV_NAME (active)"
 fi
 
-echo "[setup] Conda environment: $ENV_NAME (active)"
 echo "[setup] Python:            $(which python)"
- 
+
 echo "[setup] Data folder:   $DATA_FOLDER"
 
 if [ -n "$1" ]; then
@@ -33,13 +37,11 @@ if [ -n "$1" ]; then
 else
     echo "[setup] Output folder: $OUTPUT_FOLDER (default; pass one as: bash plot_all.sh <output_dir>)"
 fi
- 
+
 if [ ! -d "$OUTPUT_FOLDER" ]; then
     echo "[setup] Output folder does not exist -- creating it."
     mkdir -p "$OUTPUT_FOLDER"
 fi
-
-DATA_FOLDER=data
 
 #= Figure 2 =#
 echo "----------------------------------------------"
