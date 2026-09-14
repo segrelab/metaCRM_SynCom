@@ -10,6 +10,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import seaborn as sns
 import matplotlib as mpl
 mpl.rcParams['figure.figsize'] = (8, 6)
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
 
 
 palette = plt.get_cmap('bwr').with_extremes(under = "gray")
@@ -24,7 +26,6 @@ type_to_marker = {
   'buffering': 's',
   'complete lethality':'^',
 }
-
 
 def plot_epistasis_distribution(epistasis_df: pd.DataFrame) -> plt.Figure:
   """Figure 5a"""

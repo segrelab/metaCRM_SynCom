@@ -28,6 +28,10 @@ from matplotlib.patches import Patch, Circle
 sys.path.append(os.path.abspath("."))
 import utils
 
+import matplotlib as mpl
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 def conversion(x):
     """Handles mixed datatype input from csv"""
     try:

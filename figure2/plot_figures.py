@@ -16,6 +16,10 @@ from pathlib import Path
 sys.path.append('.')
 import utils
 
+import matplotlib as mpl
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     """
     Plot resource consumption/production at last timepoint.

@@ -14,6 +14,10 @@ import math
 from argparse import ArgumentParser
 from pathlib import Path
 
+import matplotlib as mpl
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 def plot_Mfig_4a(df_long, outfile=None):
     """
     Plot Passages and replicates as stacked bars for whole community experiment

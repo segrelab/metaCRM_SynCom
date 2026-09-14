@@ -13,6 +13,10 @@ import numpy as np
 sys.path.append(".")
 import utils
 
+import matplotlib as mpl
+#for text editing of pdfs
+mpl.rcParams['pdf.fonttype'] = 42
+
 
 def plot_shannon_hist(sim_subcom, exp_subcom, outfile=None):
     #plot distribution of shannon diversity from all 3-species simulations
