@@ -374,7 +374,7 @@ def calc_loo_interactions(whole_community_abun, loo_abun):
 ###  no additional data needed outside the repo  ###
 ####################################################
 
-def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t0_abun=False, no_arth=False):
+def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t0_abun=None, no_arth=False, od_cfu_conv=None):
     """
     Simulate the whole community experiment.
     Returns two long-form DataFrames: sp_abun_long and met_abun_long.
@@ -385,27 +385,36 @@ def simulate_whole_community_exp(tfs=4, time=48, crossfeeding=True, old=False, t
     t = time
     w = 10**12
     cfu=10**9
-    Cmatrix = pd.read_csv('../data/final_crm_params/cmat_fitted.csv', index_col=0)
-    Dmatrix_df = pd.read_csv('../data/final_crm_params/d_dict_fitted.csv')
+    Cmatrix = pd.read_csv('./data/final_crm_params/cmat_fitted.csv', index_col=0)
+    Dmatrix_df = pd.read_csv('./data/final_crm_params/d_dict_fitted.csv')
     D_dict = {sp: g.drop(columns="species") for sp, g in Dmatrix_df.groupby("species", sort=False)}
-    glist = pd.read_csv('../data/final_crm_params/glist_fitted.csv', index_col=0)
-    l = pd.read_csv('../data/final_crm_params/l_fitted.csv', index_col=0)
-    
+    glist = pd.read_csv('./data/final_crm_params/glist_fitted.csv', index_col=0)
+    l = pd.read_csv('./data/final_crm_params/l_fitted.csv', index_col=0)
+
     if crossfeeding == False:
         l = pd.DataFrame(0.0, index=l.index, columns=l.columns)
 
     # initial metabolite concentrations
-    init_met_conc = pd.read_csv('../data/met_conc.csv', index_col=0)
+    init_met_conc = pd.read_csv('./data/met_conc.csv', index_col=0)
     init_met_conc.index.name = None
     init_met_conc.rename(columns={"Concentration (g/mL)": "x0"}, inplace=True)
 
     # initial species abundance
-    init_sp_abun = pd.Series([10**9 * 0.01] * len(glist), index=utils.sps, name='x0')
-    if t0_abun:
-        init_abuns = [0.019849146, 0.093290988, 0.038507344, 0.30567686,
-                      0.132195316, 0.132195316, 0.083366415, 0.003572846, 
-                      0.001587932, 0.010718539, 0.026200873, 0.0, 0.0, 0, 0.138547042]
-        init_sp_abun = pd.Series([(i + 0.00005) * 10**9 for i in init_abuns], index=utils.sps, name='x0')
+    if t0_abun is None:
+        init_abuns = pd.Series([0.01] * len(glist), index=utils.sps, name='x0')  
+    elif t0_abun is True:
+        def_t0 = [0.019849146, 0.093290988, 0.038507344, 0.30567686,
+                        0.132195316, 0.132195316, 0.083366415, 0.003572846, 
+                        0.001587932, 0.010718539, 0.026200873, 0.0, 0.0, 0, 0.138547042]
+        init_abuns = pd.Series(def_t0, index=utils.sps, name='x0')
+    else:
+        init_abuns = pd.Series(t0_abun, index=utils.sps, name='x0')
+
+    if od_cfu_conv is not None:
+        init_sp_abun = init_abuns * od_cfu_conv.values
+    else:
+        init_sp_abun = init_abuns * 10**9 
+
     if no_arth:
         init_sp_abun.loc['1331'] = 0.0
 
@@ -584,9 +593,9 @@ if __name__ == "__main__":
     df_b, df_b_reps = load_experiment_2_df(args.exp2_table)
 
     #SIMULATE CRM FOR WHOLE COMMUNITY
-    df_sp_sim, df_met_sim = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False)
-    df_sp_sim_nc, df_met_sim_nc = simulate_whole_community_exp(tfs=4, crossfeeding=False, t0_abun=False)
-    df_sp_noarth, met_noarth = simulate_whole_community_exp(tfs=4, crossfeeding=True, t0_abun=False, no_arth=True)
+    df_sp_sim, df_met_sim = simulate_whole_community_exp(tfs=4, crossfeeding=True)
+    df_sp_sim_nc, df_met_sim_nc = simulate_whole_community_exp(tfs=4, crossfeeding=False)
+    df_sp_noarth, met_noarth = simulate_whole_community_exp(tfs=4, crossfeeding=True, no_arth=True)
 
     #PROCESS AND SIMULATE LEAVE-ONE-OUT DATA
     exp_loo_df = process_leave_out_experiment(args.loo_data)

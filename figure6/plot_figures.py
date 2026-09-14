@@ -32,7 +32,7 @@ def plot_shannon_hist(sim_subcom, exp_subcom, outfile=None):
     if outfile:
         plt.savefig(outfile, dpi=500)
 
-    plt.show()
+    
     return
 
 def add_bracket(ax, x_start, x_end, y, text, text_offset=0.03):
@@ -106,7 +106,7 @@ def plot_stacked_bars(exp_subcom, outfile=None):
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
     return
 
 def plot_shannon_barplots(exp_subcom, sim_subcom, outfile=None):
@@ -183,7 +183,7 @@ def plot_shannon_barplots(exp_subcom, sim_subcom, outfile=None):
     plt.tight_layout()
     if outfile:
         plt.savefig(outfile, dpi=500)
-    plt.show()
+    
     return
 
 if __name__ == "__main__":
@@ -207,6 +207,6 @@ if __name__ == "__main__":
     exp_subcom = pd.read_csv(os.path.join(args.data_dir, "experimental_3sp_otu.csv"))
 
     #Plot figs
-    plot_shannon_hist(sim_subcom, exp_subcom, outfile=os.path.join(args.out, "Mfig_6a.png"))
-    plot_stacked_bars(exp_subcom, outfile=os.path.join(args.out, "Mfig_6b.png"))
-    plot_shannon_barplots(exp_subcom, sim_subcom, outfile=os.path.join(args.out, "Mfig_6c.png"))   
+    plot_shannon_hist(sim_subcom, exp_subcom, outfile=os.path.join(args.out, "Mfig_6a.pdf"))
+    plot_stacked_bars(exp_subcom, outfile=os.path.join(args.out, "Mfig_6b.pdf"))
+    plot_shannon_barplots(exp_subcom, sim_subcom, outfile=os.path.join(args.out, "Mfig_6c.pdf"))   

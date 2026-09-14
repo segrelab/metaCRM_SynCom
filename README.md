@@ -25,7 +25,7 @@ All analyses were performed within a specified Conda environment to ensure compu
 To recreate the environment:
 ```bash
 conda env create -f environment.yml
-conda activate metaCRM_SynCom
+conda activate crm-syncom
 ```
 
 ## Data
