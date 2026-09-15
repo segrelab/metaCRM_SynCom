@@ -24,74 +24,102 @@ def plot_Mfig_2a(met_class_df, met_time_df, outfile=None):
     """
     Plot resource consumption/production at last timepoint.
     Cluster species based on metabolite usage.
+    Rows = species (clustered, dendrogram on right, labels on left),
+    cols = metabolites (ordered by class).
     """
-    
-    #last timepoint
-    last_tp_df = met_time_df[met_time_df['time'].notna()].copy()
-    last_tp_df = last_tp_df.groupby(['species', 'metabolite', 'metabolite_class']).median_usage.last().reset_index()
-    
-    #rows=metabolites, cols=species
-    plot_df = last_tp_df.pivot(index='metabolite', columns='species', values='median_usage')
-    plot_matrix = plot_df[plot_df.index != 'spermidine']
 
-    #order metabolites by class
+    # last timepoint
+    last_tp_df = met_time_df[met_time_df['time'].notna()].copy()
+    last_tp_df = (last_tp_df
+                  .groupby(['species', 'metabolite', 'metabolite_class'])
+                  .median_usage.last()
+                  .reset_index())
+
+    # rows=species, cols=metabolites
+    plot_df = last_tp_df.pivot(index='species', columns='metabolite', values='median_usage')
+    plot_matrix = plot_df.loc[:, plot_df.columns != 'spermidine']
+
+    # order metabolites (columns) by class
     class_order = ["Sugar", "Organic_Acid", "Amino_Acid", "Nucleobase", "Others"]
-    row_order = []
+    ordered_cols = []
     for cls in class_order:
-        mets_in_class = met_class_df.loc[met_class_df.metabolite_class == cls, "metabolite"].tolist()
-        mets_in_class = [m for m in mets_in_class if m in plot_matrix.index]
-        row_order.extend(mets_in_class)
-    plot_matrix = plot_matrix.loc[row_order]
-    
-    #assign colors to classes in the same order as rows
+        mets = met_class_df.loc[met_class_df.metabolite_class == cls, "metabolite"].tolist()
+        mets = [m for m in mets if m in plot_matrix.columns]
+        ordered_cols.extend(mets)
+    plot_matrix = plot_matrix[ordered_cols]
+
+    # assign colors to classes in the same order as columns
     palette = sns.color_palette("husl", n_colors=len(class_order))
+    class_colors = {cls: palette[i] for i, cls in enumerate(class_order)}
     lut = {}
-    class_colors = {}
-    for i, cls in enumerate(class_order):
-        class_colors[cls] = palette[i]
+    for cls in class_order:
         for met in met_class_df.loc[met_class_df.metabolite_class == cls, "metabolite"]:
-            if met in plot_matrix.index:
-                lut[met] = palette[i]
-    row_colors = plot_matrix.index.map(lut)
+            if met in plot_matrix.columns:
+                lut[met] = class_colors[cls]
+    col_colors = plot_matrix.columns.map(lut)
 
     plot_matrix.index.name = None
     plot_matrix.columns.name = None
-    
-    #plot clustered heatmap
+
+    # plot clustered heatmap
     g = sns.clustermap(
-        plot_matrix, row_colors=row_colors,
-        figsize=(6,10), row_cluster=False,
-        dendrogram_ratio=(.05, .05), cbar_pos=(0.85, .3, .05, .2),
+        plot_matrix, col_colors=col_colors,
+        figsize=(12, 6), row_cluster=True, col_cluster=False,
+        dendrogram_ratio=(.08, .05),
         cmap='vlag', center=0, vmax=1, vmin=-1
     )
-    g.ax_heatmap.set_yticklabels([])
-    g.ax_heatmap.set_yticks([])
-    plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=45, ha="right", rotation_mode="anchor", style="italic")
-    g.fig.suptitle('Experimental metabolite usage', fontsize=14, y=1.02, x=0.42)
-    
-    #modify colorbar
+
+    ax = g.ax_heatmap
+
+    # metabolite names hidden; species names horizontal + italic on the LEFT
+    ax.set_xticklabels([])
+    ax.set_xticks([])
+    ax.yaxis.tick_left()
+    ax.yaxis.set_label_position('left')
+    plt.setp(ax.yaxis.get_majorticklabels(), rotation=0, va="center", style="italic")
+
+    # grey dividers between metabolite classes + class labels above col_colors
+    start = 0
+    boundaries = []
+    for cls in class_order:
+        n = sum(1 for m in ordered_cols if lut[m] == class_colors[cls])
+        if n == 0:
+            continue
+        end = start + n
+        boundaries.append((cls, start, end))
+        if end < len(ordered_cols):
+            ax.axvline(end, color='dimgray', linewidth=2)
+            g.ax_col_colors.axvline(end, color='dimgray', linewidth=2)
+        start = end
+
+    for cls, start, end in boundaries:
+        mid = (start + end) / 2
+        g.ax_col_colors.text(mid, -0.4, cls.replace("_", " "),
+                             ha='center', va='bottom', fontsize=11, color='black')
+
+    g.fig.suptitle('Experimental metabolite usage', fontsize=14, y=1.06, x=0.5)
+
+    # --- move row dendrogram from left to right of the heatmap ---
+    hm_pos = g.ax_heatmap.get_position()
+    dend_pos = g.ax_row_dendrogram.get_position()
+    gap = 0.01
+    g.ax_row_dendrogram.set_position([hm_pos.x1 + gap, hm_pos.y0,
+                                      dend_pos.width, hm_pos.height])
+    g.ax_row_dendrogram.invert_xaxis()   # root points away from the heatmap
+
+    # colorbar to the right of everything
+    dend_new = g.ax_row_dendrogram.get_position()
+    g.ax_cbar.set_position([dend_new.x1 + 0.04, hm_pos.y0 + 0.1, 0.02, 0.4])
     g.cax.set_title('Metabolite\nusage\n', fontsize=10, pad=15)
-    cbar = g.cax
-    ticks = cbar.get_yticks()
-    tick_labels = [f'{int(t)}+' if t==1 else str(t) for t in ticks]
-    cbar.set_yticklabels(tick_labels)
-    
-    #custom row colors with class labels
-    class_label_positions = []
-    for cls, metabolites in met_class_df.groupby('metabolite_class')['metabolite']:
-        class_rows = [i for i, met in enumerate(plot_matrix.index) if met in metabolites.values]
-        if class_rows:
-            mid = (min(class_rows) + max(class_rows)) / 2
-            class_label_positions.append((mid, cls))
-    for pos, cls in class_label_positions:
-        g.ax_row_colors.text(-0.5, pos, cls.replace("_"," "), rotation=90, va='center', ha='right', fontsize=10, color='black')
-    
-    col_order = [plot_matrix.columns[i] for i in g.dendrogram_col.reordered_ind]
-    
+    ticks = g.cax.get_yticks()
+    g.cax.set_yticklabels([f'{int(t)}+' if t == 1 else str(t) for t in ticks])
+
+    row_order = [plot_matrix.index[i] for i in g.dendrogram_row.reordered_ind]
+
     if outfile:
-        plt.savefig(outfile, dpi=600, bbox_inches='tight')
-    
-    return col_order
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+
+    return row_order
 
 def plot_Sfig_1(met_class_df, met_time_df, outfile=None):
     """
@@ -209,7 +237,7 @@ def plot_Sfig_2(met_class_df, met_dR_df, outfile=None):
     plt.subplots_adjust(left=0.08, bottom=0.03, wspace=0.05, hspace=0.2, right=0.98)
     
     if outfile:
-        plt.savefig(outfile, dpi=600, bbox_inches='tight')
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
 
     return
 
@@ -301,7 +329,7 @@ def plot_Sfig_4(df, outfile=None):
     plt.subplots_adjust(wspace=0.4, hspace=0.6, left=0.07, bottom=0.17)
 
     if outfile:
-        plt.savefig(outfile, dpi=600)
+        plt.savefig(outfile, dpi=300)
 
     return
 
@@ -341,6 +369,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     """
     Plot Fitted C-Matrix parameters in Metabolite Classes.
     Use same species order as 2a plot, scale by energy conversion factor.
+    g and l parameter columns sit to the right of the main heatmap.
     """
     #species_name -> species_code
     name_to_code = {
@@ -349,12 +378,11 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     }
     #convert names to codes
     sp_order_codes = [str(name_to_code[name]) for name in sp_order]
-    
+
     plot_l = pd.DataFrame(l['sucrose'])
     Cmatrix = Cmatrix.loc[sp_order_codes]
     glist = glist.loc[sp_order_codes]
     plot_l = plot_l.loc[sp_order_codes]
-    plot_matrix = Cmatrix
 
     #scale by energy conversion factor w, constant for all metabolites
     plot_matrix = Cmatrix * 10**12
@@ -374,7 +402,7 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     #force this order on Cmatrix
     plot_matrix = plot_matrix[ordered_cols]
 
-    #row colors based on metabolite classes
+    #col colors based on metabolite classes
     palette = sns.color_palette("husl", n_colors=len(class_order))
     class_colors = {cls: palette[i] for i, cls in enumerate(class_order)}
 
@@ -392,81 +420,85 @@ def plot_Mfig_2b(Cmatrix, glist, l, met_class_df, sp_order, outfile=None):
     g = sns.clustermap(
         plot_matrix,
         col_colors=col_colors,
-        figsize=(12, 6),
+        figsize=(15, 6),
         row_cluster=False,
         col_cluster=False,
         cmap='Blues',
         norm=LogNorm(vmin=1e-8, vmax=max(plot_matrix.max()))
     )
 
-    g.ax_heatmap.set_yticklabels([])
-    g.ax_heatmap.set_yticks([])
-    g.ax_heatmap.set_xticklabels([])
-    g.ax_heatmap.set_xticks([])
-
     ax = g.ax_heatmap
+    ax.set_xticklabels([])
+    ax.set_xticks([])
+
+    #species names on the LEFT of the main heatmap, italic
+    ax.yaxis.tick_left()
+    ax.yaxis.set_label_position('left')
+    ax.set_yticks(np.arange(len(plot_matrix.index)) + 0.5)
+    ax.set_yticklabels([utils.get_species_name(idx) for idx in plot_matrix.index])
+    plt.setp(ax.yaxis.get_majorticklabels(), rotation=0, va='center', style='italic')
 
     #add metab category labels/colors
     start = 0
     boundaries = []
-
     for cls in class_order:
         mets = [m for m in ordered_cols if lut[m] == class_colors[cls]]
         n = len(mets)
+        if n == 0:
+            continue
         end = start + n
         boundaries.append((cls, start, end))
-        ax.axvline(end - 0.05, color='dimgray', linewidth=2)
+        if end < len(ordered_cols):
+            ax.axvline(end - 0.05, color='dimgray', linewidth=2)
         start = end
 
     for cls, start, end in boundaries:
         mid = (start + end) / 2
         ax.text(mid, -1.5, cls.replace("_", " "), ha='center', va='center', fontsize=12)
 
-    #shift heatmap to include g and l parameter columns
-    g.gs.update(left=0.01, right=0.90)
-    gs = gridspec.GridSpec(1, 2, right=0.16, left=0.1, top=0.8, wspace=0.5)
+    #shrink main grid to leave room on the right for g, l and the colorbar
+    g.gs.update(left=0.10, right=0.78)
+    g.fig.canvas.draw()   # finalize positions before reading them
+
+    hm = ax.get_position()
+    panel_w = 0.015
+    gap = 0.012
 
     # keep vmin/vmax for shared (g,l) scale
     vmin, vmax = 0, 1.2
 
     #plot g parameters by species
-    ax2 = g.fig.add_subplot(gs[0])
-    sns.heatmap(
-        glist, cmap="Blues", cbar=False, ax=ax2,
-        vmin=vmin, vmax=vmax,
-        yticklabels=[utils.get_species_name(idx) for idx in glist.index]
-    )
-
-    for tick in ax2.get_yticklabels():
-        tick.set_fontstyle('italic')
-
+    ax2 = g.fig.add_axes([hm.x1 + gap, hm.y0, panel_w, hm.height])
+    sns.heatmap(glist, cmap="Blues", cbar=False, ax=ax2, vmin=vmin, vmax=vmax)
     ax2.set_xticks([])
+    ax2.set_yticks([])
+    ax2.set_ylabel("")
     ax2.set_xlabel("$g_i$", fontsize=12)
     ax2.xaxis.set_label_position('top')
 
     #plot l parameters by species
-    ax3 = g.fig.add_subplot(gs[1])
-    sns.heatmap(
-        plot_l, cmap="Blues", cbar=False, ax=ax3,
-        vmin=vmin, vmax=vmax
-    )
+    ax3 = g.fig.add_axes([hm.x1 + 2 * gap + panel_w, hm.y0, panel_w, hm.height])
+    sns.heatmap(plot_l, cmap="Blues", cbar=False, ax=ax3, vmin=vmin, vmax=vmax)
     ax3.set_xticks([])
     ax3.set_yticks([])
+    ax3.set_ylabel("")
     ax3.set_xlabel(r"$l_{\alpha}$", fontsize=12)
     ax3.xaxis.set_label_position('top')
 
-    #other plotting options
+    #colorbar for the main heatmap only
     g.cax.set_title('Energy\nuptake rate\n$C_{i\\alpha}\\cdot\\omega_{\\alpha}$',
                     fontsize=11, pad=15)
+    g.ax_cbar.set_position([hm.x1 + 3 * gap + 2 * panel_w + 0.03,
+                            hm.y0 + 0.30 * hm.height, 0.022, 0.40 * hm.height])
+
     g.fig.text(
-        0.5, 0.2,
-        '            Fitted CRM metabolite usage parameters',
+        0.44, 0.06,
+        'Fitted CRM metabolite usage parameters',
         ha='center', va='top', fontsize=14
     )
-    g.ax_cbar.set_position([0.93, 0.25, 0.03, 0.4])
 
     if outfile:
-        plt.savefig(outfile, dpi=600, bbox_inches='tight')
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
 
     return
 
@@ -646,7 +678,7 @@ def plot_Mfig_2d(fit_met_df, metab_time_df, met_class_df, outfile=None, jitter_a
     fig.text(0.07, 0.5, 'Measured Metabolite Usage', va='center',
              rotation='vertical', fontsize=18)
     if outfile:
-        plt.savefig(outfile, dpi=400)
+        plt.savefig(outfile, dpi=300)
     return
 
 def plot_g_compare(g_init, g_fit, outfile=None):
@@ -807,7 +839,57 @@ def plot_metabolite_usage_distribution(met_class_df, met_time_df, outfile=None):
     sns.despine(ax=ax)
 
     if outfile:
-        plt.savefig(outfile, dpi=500, bbox_inches='tight')
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+    return
+
+def plot_Mfig_2a_glcolorbar(col_order, glist, l, outfile=None):
+
+    l_plot = pd.DataFrame(l['sucrose'])
+
+    fig, axes = plt.subplots(1, 2, figsize=(2, 5), gridspec_kw={"width_ratios": [1, 1]})
+
+    #species_name -> species_code, built from the glist index
+    name_to_code = {
+        utils.get_species_name(code): str(code)
+        for code in glist.index
+    }
+
+    #col_order comes in as species names; convert to codes
+    order_codes = [name_to_code[name] for name in col_order if name in name_to_code]
+
+    #force the same row order on both panels
+    glist = glist.loc[order_codes]
+    l_plot = l_plot.loc[order_codes]
+
+    g_names = [utils.get_species_name(idx) for idx in glist.index]
+    l_names = [utils.get_species_name(idx) for idx in l_plot.index]
+    
+    #shared color norm
+    vmin = 0
+    vmax = 1.2
+
+    #plot glist
+    ax0 = sns.heatmap(glist, cmap="Greens", vmin=vmin, vmax=vmax, cbar=False, ax=axes[0])
+    axes[0].set_title("glist")
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
+
+    #plot l_plot
+    ax1 = sns.heatmap(l_plot, cmap="Greens", vmin=vmin, vmax=vmax, cbar=False, ax=axes[1])
+    axes[1].set_title("l_plot")
+    axes[1].set_xticks([])
+    axes[1].set_yticks([])
+
+    #add color bar
+    cbar_ax = fig.add_axes([0.1, -0.01, 1, 0.05])  
+    cbar = fig.colorbar(ax0.collections[0], cax=cbar_ax, orientation="horizontal")
+    cbar.ax.tick_params(labelsize=12)
+    cbar.ax.set_xlabel(r'Fraction ( $l_\alpha$ )', fontsize=12)
+    fig.text(0.25, 0.065, r"1/energy ( $g_i$ )", fontsize=12)
+    
+    if outfile:
+        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+    
     return
 
 
@@ -846,6 +928,7 @@ if __name__ == "__main__":
     #plot figs
     plot_Sfig_1(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "fig2-Sfig_1.pdf"))
     col_order = plot_Mfig_2a(metab_class_df, metab_time_df, outfile=os.path.join(args.out, "Mfig_2a.pdf"))
+    plot_Mfig_2a_glcolorbar(col_order, glist_fitted, l_fitted, outfile=os.path.join(args.out, "Mfig_2a_glcolorbar.pdf"))
     plot_Sfig_2(metab_class_df, metab_dR_df, outfile=os.path.join(args.out, "fig2-Sfig_2.pdf"))
     plot_Sfig_3(od_time_df, growth_df_all_timepoints, outfile=os.path.join(args.out, "fig2-Sfig_3.pdf"))
     plot_Sfig_5b(np.array(cmat_fitted), np.array(cmat_init), outfile=os.path.join(args.out, "fig2-Sfig_5b.pdf"))
