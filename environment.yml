@@ -18,11 +18,13 @@ dependencies:
   - matplotlib-base=3.10.*
   - seaborn-base=0.13.*
   - plotly=6.3.*
+  - pyvis=0.3.*
 
   # --- notebooks / dev ---
   - ipykernel
   - jupyterlab
   - tqdm
+  - ipywidgets
 
   # --- pip-only (not on conda-forge) ---
   - pip

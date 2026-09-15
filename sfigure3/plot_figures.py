@@ -131,6 +131,9 @@ if __name__ == "__main__":
     met_time = pd.read_csv(os.path.join(args.data_dir, "monoculture_exp/met_time_df.csv"))
     met_time['metabolite'] = met_time['metabolite'].str.lower()  # There's also some capital case metabolites in here...
 
+    t0 = met_time[['species', 'metabolite', 'metabolite_class']].drop_duplicates().assign(time=0.0, median_val=1.0, median_usage=0.0)
+    met_time = pd.concat([t0, met_time], ignore_index=True).sort_values(['species', 'metabolite', 'time'], ignore_index=True)
+
     #### Plot and save figures ####
     fig_props = {
         'bbox_inches': 'tight',
