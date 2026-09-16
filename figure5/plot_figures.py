@@ -209,5 +209,5 @@ if __name__ == '__main__':
   plt.close(fig5legend)
 
   figS12 = plot_all_pairwise_epistasis(epistasis_df)
-  figS12.savefig(f'{outf}/FigS12.pdf', bbox_inches='tight')
+  figS12.savefig(f'{outf}/FigS12.pdf', **fig_props)
   plt.close(figS12)
