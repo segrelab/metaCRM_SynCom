@@ -27,6 +27,7 @@ To recreate the environment:
 conda env create -f environment.yml
 conda activate crm-syncom
 ```
+Installing conda environment should not take more than a few minutes.
 
 ## Data
 Raw exometabolomics and 16S data is in the process of being deposited in formal data repositories, but here there is all of the clean and processed data needed for recreating the simulations and figures in the manuscript.
@@ -51,3 +52,4 @@ All figures can be reproduced if you run:
 bash plot_all.sh <output_directory>
 ```
 Each individual figure panel and associated supplementary figures can also be generated from running the corresponding `plot_figure.py` within each figure directory.
+Running the regeneration of all figures in the manuscript should not take more than a few minutes.
